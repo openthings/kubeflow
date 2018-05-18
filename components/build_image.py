@@ -93,6 +93,12 @@ def build_tf_serving(args):
   run(command, cwd=context_dir)
 
 def build_tf_notebook(args):
+  print("")
+  print("===============================================")
+  print("Building TF Notebook...")
+  print("===============================================")
+  print("")
+
   context_dir = "tensorflow-notebook-image"
   version = args.tf_version if args.platform == "cpu" else args.tf_version + "gpu"
 
@@ -106,6 +112,13 @@ def build_tf_notebook(args):
           args.registry, args.tf_version, args.platform, args.tag),
        "-f", "Dockerfile", "."]
   ))
+
+  print("")
+  print("===============================================")
+  print(command)
+  print("===============================================")
+  print("")
+
   run(command, cwd=context_dir)
 
 def main():
