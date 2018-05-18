@@ -1,7 +1,7 @@
 {
   "HTTP_PROXY": "http://192.168.199.99:9999",
   "HTTPS_PROXY": "http://192.168.199.99:9999",
-  "BASE_IMAGE": "ubuntu:latest",
+  "BASE_IMAGE": "ubuntu:16.04",
   "TF_PACKAGE": "https://files.pythonhosted.org/packages/59/41/ba6ac9b63c5bfb90377784e29c4f4c478c74f53e020fa56237c939674f2d/tensorflow_gpu-1.8.0-cp36-cp36m-manylinux1_x86_64.whl",
   "TF_PACKAGE_PY_27": "https://files.pythonhosted.org/packages/9d/77/fff8c99f9a54823b95f3160b110c96c0c6d6b299e8df51a17dbc488455d8/tensorflow_gpu-1.8.0-cp27-cp27mu-manylinux1_x86_64.whl",
   "INSTALL_TFMA": "yes"
