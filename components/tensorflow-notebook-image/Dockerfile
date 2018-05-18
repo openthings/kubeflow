@@ -2,8 +2,17 @@
 # Distributed under the terms of the Modified BSD License.
 
 ARG BASE_IMAGE=ubuntu:latest
+#ARG BASE_IMAGE=ubuntu:16.04
 
 FROM $BASE_IMAGE
+
+ARG HTTP_PROXY=""
+ARG HTTPS_PROXY=""
+
+ENV HTTP_PROXY http://192.168.199.99:9999
+ENV HTTPS_PROXY http://192.168.199.99:9999
+ENV http_proxy http://192.168.199.99:9999
+ENV https_proxy http://192.168.199.99:9999
 
 ARG INSTALL_TFMA=yes
 ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
@@ -80,7 +89,9 @@ RUN cd /tmp && \
     chmod +x /usr/local/bin/tini
 
 # Install conda as jovyan user and check the md5 sum provided on the download site
-ENV MINICONDA_VERSION 4.4.10
+#ENV MINICONDA_VERSION 4.4.10
+ENV MINICONDA_VERSION 4.5.4
+
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
     wget --quiet https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
