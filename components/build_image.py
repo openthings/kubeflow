@@ -42,6 +42,7 @@ def run(command, cwd=None, env=None, polling_interval=datetime.timedelta(seconds
   while process.poll() is None:
     process.stdout.flush()
     for line in iter(process.stdout.readline, b''):
+      line = str(line,encoding = "utf-8")
       output.append(line.strip())
       logging.info(line.strip())
 
@@ -49,6 +50,7 @@ def run(command, cwd=None, env=None, polling_interval=datetime.timedelta(seconds
 
   process.stdout.flush()
   for line in iter(process.stdout.readline, b''):
+    line = str(line,encoding = "utf-8")
     output.append(line.strip())
     logging.info(line.strip())
 
@@ -57,6 +59,7 @@ def run(command, cwd=None, env=None, polling_interval=datetime.timedelta(seconds
                                         "cmd: {0} exited with code {1}".format(
                                         " ".join(command), process.returncode), "\n".join(output))
 
+  #print(output)
   return "\n".join(output)
 
 def wait_for_docker_daemon(timeout=60):
@@ -114,10 +117,6 @@ def build_tf_serving(args):
     run(["gcloud", "docker", "--", "push", image_name])
 
 def build_tf_notebook(args):
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> c2319d8e4d0ffa62f65eb6a549994c7ff6a6151d
   print("")
   print("===============================================")
   print("Building TF Notebook...")
@@ -129,11 +128,7 @@ def build_tf_notebook(args):
   wait_for_docker_daemon()
   dir_path = os.path.dirname(os.path.realpath(__file__))
   context_dir = os.path.join(dir_path, "tensorflow-notebook-image")
-<<<<<<< HEAD
 
-=======
->>>>>>> upstream/master
->>>>>>> c2319d8e4d0ffa62f65eb6a549994c7ff6a6151d
   version = args.tf_version if args.platform == "cpu" else args.tf_version + "gpu"
 
   config = get_config(context_dir, version)
