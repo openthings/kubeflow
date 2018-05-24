@@ -114,6 +114,10 @@ def build_tf_serving(args):
     run(["gcloud", "docker", "--", "push", image_name])
 
 def build_tf_notebook(args):
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> c2319d8e4d0ffa62f65eb6a549994c7ff6a6151d
   print("")
   print("===============================================")
   print("Building TF Notebook...")
@@ -125,7 +129,11 @@ def build_tf_notebook(args):
   wait_for_docker_daemon()
   dir_path = os.path.dirname(os.path.realpath(__file__))
   context_dir = os.path.join(dir_path, "tensorflow-notebook-image")
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/master
+>>>>>>> c2319d8e4d0ffa62f65eb6a549994c7ff6a6151d
   version = args.tf_version if args.platform == "cpu" else args.tf_version + "gpu"
 
   config = get_config(context_dir, version)
