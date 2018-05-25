@@ -93,12 +93,10 @@ ENV MINICONDA_VERSION 4.4.10
 
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
-    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh
-#    wget https://repo.anaconda.com/archive/Anaconda3-5.1.0-Linux-x86_64.sh
+    wget https://repo.anaconda.com/archive/Anaconda3-5.1.0-Linux-x86_64.sh
 
 RUN cd /tmp && \
-    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} 
-#    /bin/bash Anaconda3-5.1.0-Linux-x86_64.sh -f -b -p ${CONDA_DIR}
+    /bin/bash Anaconda3-5.1.0-Linux-x86_64.sh -f -b -p ${CONDA_DIR}
 
 #RUN cd /tmp && \
 #    mkdir -p $CONDA_DIR && \
@@ -115,7 +113,6 @@ RUN cd /tmp && \
 # The channels conda-forge will failed, unknown why.
 #   conda config --system --prepend channels conda-forge 
 RUN cd /tmp && \
-    conda config --system --prepend channels conda-forge && \
     conda config --system --set auto_update_conda false && \
     conda config --system --set show_channel_urls true && \
     conda update -n base conda --yes && \
@@ -161,10 +158,17 @@ RUN conda create -n py2 python=2 && \
       pip install --no-cache-dir tensorflow-model-analysis && \
       jupyter nbextension install --py --symlink tensorflow_model_analysis --user && \
       jupyter nbextension enable --py tensorflow_model_analysis --user; \
+<<<<<<< HEAD
     fi
 
 # Install jupyterlab-manager
 RUN conda install --yes \
+=======
+    fi \
+    && \
+    # Install jupyterlab-manager
+    conda install --quiet --yes \
+>>>>>>> upstream/master
     # nodejs required for jupyterlab-manager
     nodejs && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager && \

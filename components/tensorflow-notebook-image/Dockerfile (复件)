@@ -25,9 +25,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV NB_USER jovyan
 ENV NB_UID 1000
 ENV HOME /home/$NB_USER
-# We prefer to have a global conda install
-# to minimize the amount of content in $HOME
-ENV CONDA_DIR=/opt/conda
+ENV CONDA_DIR=$HOME/.conda
 ENV PATH $CONDA_DIR/bin:$PATH
 
 # Use bash instead of sh
@@ -61,17 +59,27 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 
 # Create jovyan user with UID=1000 and in the 'users' group
-# but allow for non-initial launches of the notebook to have
-# $HOME provided by the contents of a PV
-RUN useradd -M -s /bin/bash -N -u $NB_UID $NB_USER && \
-    chown -R ${NB_USER}:users /usr/local/bin && \
-    mkdir -p $HOME
+RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER && \
+    chown -R ${NB_USER}:users /usr/local/bin
 
 RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
     echo "deb https://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
     apt-get update && \
-    apt-get install -y google-cloud-sdk kubectl
+    apt-get install -y google-cloud-sdk kubectl && \
+    gcloud config set core/disable_usage_reporting true && \
+    gcloud config set component_manager/disable_update_check true && \
+    gcloud config set metrics/environment github_docker_image
+
+RUN chown -R ${NB_USER}:users /home/${NB_USER}
+
+# Run everything below this as $NB_USER
+USER $NB_USER
+
+WORKDIR $HOME
+
+# Setup work directory for backward-compatibility
+RUN mkdir /home/$NB_USER/work
 
 # Install Tini - used as entrypoint for container
 #https_proxy=http://192.168.199.99:9999
@@ -93,41 +101,22 @@ ENV MINICONDA_VERSION 4.4.10
 
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
-    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh
-#    wget https://repo.anaconda.com/archive/Anaconda3-5.1.0-Linux-x86_64.sh
-
-RUN cd /tmp && \
-    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} 
-#    /bin/bash Anaconda3-5.1.0-Linux-x86_64.sh -f -b -p ${CONDA_DIR}
-
-#RUN cd /tmp && \
-#    mkdir -p $CONDA_DIR && \
-#    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-#    echo "bec6203dbb2f53011e974e9bf4d46e93 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
-#    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} && \
-#    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-#    conda config --system --prepend channels conda-forge && \
-#    conda config --system --set auto_update_conda false && \
-#    conda config --system --set show_channel_urls true
-
-
-# Update conda
-# The channels conda-forge will failed, unknown why.
-#   conda config --system --prepend channels conda-forge 
-RUN cd /tmp && \
+    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
+    echo "bec6203dbb2f53011e974e9bf4d46e93 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
+    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} && \
+    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     conda config --system --prepend channels conda-forge && \
     conda config --system --set auto_update_conda false && \
-    conda config --system --set show_channel_urls true && \
+    conda config --system --set show_channel_urls true
+
+# Update conda
+RUN cd /tmp && \
     conda update -n base conda --yes && \
     conda update conda --yes
 
 RUN cd /tmp && \
     conda update --all --yes && \
     conda clean -tipsy
-
-# NOTE: Beyond this point be careful of breaking out
-# or otherwise adding new layers with RUN, chown, etc. 
-# The image size can grow significantly.
 
 # Install base python3 packages
 RUN pip install --upgrade pip && \
@@ -167,25 +156,17 @@ RUN conda create -n py2 python=2 && \
 RUN conda install --yes \
     # nodejs required for jupyterlab-manager
     nodejs && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
-    # Do chown in this layer for significant size savings
-    chown -R ${NB_USER}:users $HOME && \
-    chown -R ${NB_USER}:users $CONDA_DIR
+    jupyter labextension install @jupyter-widgets/jupyterlab-manager
 
 # Install common packages from requirements.txt for both python2 and python3
-# NB: the COPY chown can't expand a bash variable for NB_USER
-COPY --chown=jovyan:users requirements.txt /tmp
-COPY --chown=jovyan:users  jupyter_notebook_config.py /tmp
-RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
+COPY --chown=jovyan:users requirements.txt $HOME/requirements.txt
+RUN pip --no-cache-dir install -r $HOME/requirements.txt && \
     source activate py2 && \
-    pip --no-cache-dir install -r /tmp/requirements.txt
-
-# Wipe $HOME for PVC detection later
-WORKDIR $HOME
-RUN rm -fr $(ls -A $HOME)
+    pip --no-cache-dir install -r $HOME/requirements.txt
 
 # Copy over init scripts
-COPY --chown=jovyan:users start-singleuser.sh start-notebook.sh start.sh pvc-check.sh /usr/local/bin/
+COPY --chown=jovyan:users start-singleuser.sh start-notebook.sh start.sh /usr/local/bin/
+COPY --chown=jovyan:users  jupyter_notebook_config.py $HOME/.jupyter/
 RUN chmod a+rx /usr/local/bin/*
 
 # Configure container startup
