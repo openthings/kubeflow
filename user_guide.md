@@ -13,6 +13,7 @@
       - [Run the TfCnn example](#run-the-tfcnn-example)
   - [Advanced Customization](#advanced-customization)
   - [Troubleshooting](#troubleshooting)
+    - [TensorFlow and AVX](#tensorflow-and-avx)
     - [Minikube](#minikube)
     - [RBAC clusters](#rbac-clusters)
     - [OpenShift](#openshift)
@@ -94,6 +95,12 @@ If using GKE, we can configure our cloud environment to use GCP features with a 
 ks param set kubeflow-core cloud gke --env=cloud
 ```
 
+If the cluster was created on AWS:
+```
+ks param set kubeflow-core cloud aws --env=cloud
+```
+_NOTE_: using 'gke' instead of 'aws' will work too.
+
 If the cluster was created on Azure with AKS/ACS:
 
 ```
@@ -104,6 +111,12 @@ If it was created with acs-engine instead:
 
 ```
 ks param set kubeflow-core cloud acsengine --env=cloud
+```
+
+If it was created on Alibaba Cloud with [ACK](https://www.alibabacloud.com/product/kubernetes):
+
+```
+ks param set kubeflow-core cloud ack --env=cloud
 ```
 
 
@@ -374,6 +387,7 @@ Create a component for your job.
 
 ```
 JOB_NAME=myjob
+
 ks generate tf-job ${JOB_NAME} --name=${JOB_NAME}
 ```
 
@@ -418,7 +432,11 @@ Create the component
 
 ```
 CNN_JOB_NAME=mycnnjob
-ks generate tf-cnn ${CNN_JOB_NAME} --name=${CNN_JOB_NAME}
+
+ks registry add kubeflow-git github.com/kubeflow/kubeflow/tree/${VERSION}/kubeflow
+ks pkg install kubeflow-git/examples
+
+ks generate tf-job-simple ${CNN_JOB_NAME} --name=${CNN_JOB_NAME}
 ```
 
 Submit it
@@ -427,7 +445,7 @@ Submit it
 ks apply ${KF_ENV} -c ${CNN_JOB_NAME}
 ```
 
-Monitor it (Noted that tf-cnn job is also a tfjobs. Please refer to the [TfJob docs](https://github.com/kubeflow/tf-operator#monitoring-your-job))
+Monitor it (Please refer to the [TfJob docs](https://github.com/kubeflow/tf-operator#monitoring-your-job))
 
 ```
 kubectl get -o yaml tfjobs ${CNN_JOB_NAME}
@@ -439,11 +457,6 @@ Delete it
 ks delete ${KF_ENV} -c ${CNN_JOB_NAME}
 ```
 
-The prototype provides a bunch of parameters to control how the job runs (e.g. use GPUs run distributed etc...). To see a list of paramets
-
-```
-ks prototype describe tf-cnn
-```
 
 ### Submitting a PyTorch training job
 
@@ -550,6 +563,14 @@ tmpfs                                                           15444244       0
 
 ## Troubleshooting
 
+### TensorFlow and AVX
+There are some instances where you may encounter a TensorFlow-related Python installation or a pod launch issue that results in a SIGILL (illegal instruction core dump). Kubeflow uses the pre-built binaries from the TensorFlow project which, beginning with version 1.6, are compiled to make use of the [AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions) CPU instruction. This is a recent feature and your CPU might not support it. Check the host environment for your node to determine whether it has this support:
+
+Linux:
+```
+grep -ci avx /proc/cpuinfo
+```
+
 ### Minikube
 
 On [Minikube](https://github.com/kubernetes/minikube) the Virtualbox/VMware drivers for Minikube are recommended as there is a known
@@ -565,6 +586,14 @@ minikube start --cpus 4 --memory 8096 --disk-size=40g
     for JupyterHub.
   * The larger disk is needed to accomodate Kubeflow's Jupyter images which
     are 10s of GBs due to all the extra Python libraries we include.
+
+If you just installed Minikube following instructions from the [quick start guide](https://kubernetes.io/docs/getting-started-guides/minikube/#installation), you most likely
+created a VM with the default resources. You would want to recreate your Minikube with the appropriate resource setttings.
+```
+minikube stop
+minikube delete
+minikube start --cpus 4 --memory 8096 --disk-size=40g
+```
 
 If you encounter a jupyter-xxxx pod in Pending status, described with:
 ```

@@ -6,6 +6,7 @@ import logging
 import os
 import requests
 import time
+import yaml
 
 from googleapiclient import discovery
 from googleapiclient import errors
@@ -25,6 +26,14 @@ def parse_args():
     help="The name for the deployment.")
 
   parser.add_argument(
+    "--bootstrapper_image", required=False, type=str, 
+    help="The bootstrapper image for deployment.")
+
+  parser.add_argument(
+    "--tfjob_version", required=True, type=str,
+    help="The tfjob version to deploy.")
+
+  parser.add_argument(
     "--config", required=True, type=str, 
     help="The path to the YAML file for the deployment config to use.")
   
@@ -35,6 +44,13 @@ def parse_args():
   
   args, _ = parser.parse_known_args()
   return args
+
+def update_tfjob_version(config, tfjob_version):
+  bootstrapper_config = yaml.load(config['resources'][0]['properties']['bootstrapperConfig'])
+  for param in bootstrapper_config['app']['parameters']:
+    if param['name'] == 'tfJobVersion':
+      param['value'] = tfjob_version
+  config['resources'][0]['properties']['bootstrapperConfig'] = yaml.dump(bootstrapper_config)
 
 def deploy_kubeflow_gcp(_):
   """Deploy Kubeflow."""
@@ -55,6 +71,11 @@ def deploy_kubeflow_gcp(_):
   
   with open(args.config) as hf:
     content = hf.read()
+    content_yaml = yaml.load(content)
+
+  update_tfjob_version(content_yaml, args.tfjob_version)
+  if args.bootstrapper_image:
+    content_yaml['resources'][0]['properties']['bootstrapperImage'] = args.bootstrapper_image
 
   for f in import_files:    
     with open(f) as hf:
@@ -69,7 +90,7 @@ def deploy_kubeflow_gcp(_):
     "name": deployment_name,
     "target": {
       "config": {
-        "content": content,
+        "content": yaml.dump(content_yaml),
       },
       "imports": imports,
     },  

@@ -25,3 +25,9 @@ libraries:
   openmpi:
     version: master
     path: openmpi
+  katib:
+    version: master
+    path: katib
+  automation:
+    version: master
+    path: automation

@@ -25,9 +25,6 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-	"os/exec"
-	"bytes"
-
 	"github.com/ghodss/yaml"
 	"github.com/ksonnet/ksonnet/actions"
 	kApp "github.com/ksonnet/ksonnet/metadata/app"
@@ -46,6 +43,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"io/ioutil"
+	"os/exec"
+	"bytes"
 )
 
 // RecommendedConfigPathEnvVar is a environment variable for path configuration
@@ -58,6 +57,7 @@ const DefaultStorageAnnotation = "storageclass.beta.kubernetes.io/is-default-cla
 // Assume gcloud is on the path.
 const GcloudPath = "gcloud"
 
+const RegistriesDefaultConfig = "/opt/kubeflow/image_registries.yaml"
 const RegistriesRoot = "/opt/registries"
 
 type KsComponent struct{
@@ -255,7 +255,7 @@ func setupNamespace(namespaces type_v1.NamespaceInterface, name_space string) er
 	return err
 }
 
-func createComponent(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, args []string) {
+func createComponent(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, args []string) error {
 	componentName := args[1]
 	componentPath := filepath.Join(opt.AppDir, "components", componentName+".jsonnet")
 
@@ -266,18 +266,19 @@ func createComponent(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, a
 			actions.OptionArguments: args,
 		})
 		if err != nil {
-			log.Fatalf("There was a problem creating protoype package kubeflow-core; error %v", err)
+			return errors.New(fmt.Sprintf("There was a problem creating component %v: %v", componentName, err))
 		}
 	} else {
 		log.Infof("Component %v already exists", componentName)
 	}
+	return nil
 }
 
-func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootConfig *BootConfig) {
+func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootConfig *BootConfig) error {
 	libs, err := (*kfApp).Libraries()
 
 	if err != nil {
-		log.Fatalf("Could not list libraries for app; error %v", err)
+		return errors.New(fmt.Sprintf("Could not list libraries for app; error %v", err))
 	}
 
 	regUris := make(map[string]string)
@@ -289,7 +290,7 @@ func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootC
 		pkgName := p.Name
 		_, err = (*fs).Stat(path.Join(regUris[p.Registry], pkgName))
 		if err != nil {
-			log.Fatalf("Package %v didn't exist in registry %v", pkgName, regUris[p.Registry])
+			return errors.New(fmt.Sprintf("Package %v didn't exist in registry %v", pkgName, regUris[p.Registry]))
 		}
 		full := fmt.Sprintf("kubeflow/%v", pkgName)
 		log.Infof("Installing package %v", full)
@@ -305,7 +306,7 @@ func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootC
 		})
 
 		if err != nil {
-			log.Fatalf("There was a problem installing package %v; error %v", full, err)
+			return errors.New(fmt.Sprintf("There was a problem installing package %v; error %v", full, err))
 		}
 	}
 
@@ -325,7 +326,9 @@ func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootC
 		if val, ok := paramMapping[c.Name]; ok {
 			params = append(params, val...)
 		}
-		createComponent(opt, kfApp, fs, params)
+		if err = createComponent(opt, kfApp, fs, params); err != nil {
+			return err
+		}
 	}
 	// Apply Params
 	for _, p := range bootConfig.App.Parameters {
@@ -336,9 +339,10 @@ func appGenerate(opt *options.ServerOption, kfApp *kApp.App, fs *afero.Fs, bootC
 			actions.OptionValue: p.Value,
 		})
 		if err != nil {
-			log.Fatalf("Error when setting Parameters %v for Component %v: %v", p.Name, p.Component, err)
+			return errors.New(fmt.Sprintf("Error when setting Parameters %v for Component %v: %v", p.Name, p.Component, err))
 		}
 	}
+	return err
 }
 
 // Run the tool.
@@ -353,9 +357,25 @@ func Run(opt *options.ServerOption) error {
 		return err
 	}
 
+	regConfig, err := LoadConfig(RegistriesDefaultConfig)
+	if err != nil {
+		return err
+	}
 	bootConfig, err := LoadConfig(opt.Config)
 	if err != nil {
 		return err
+	}
+
+	allRegistries := make(map[string]RegistryConfig)
+	for _, registry := range append(regConfig.Registries, bootConfig.Registries...) {
+		if _, ok := allRegistries[registry.Name]; !ok {
+			allRegistries[registry.Name] = registry
+		}
+	}
+
+	bootConfig.Registries = make([]RegistryConfig, 0, len(allRegistries))
+	for _, val := range allRegistries {
+		bootConfig.Registries = append(bootConfig.Registries, val)
 	}
 
 	kubeClient, err := clientset.NewForConfig(rest.AddUserAgent(config, "kubeflow-bootstrapper"))
@@ -431,7 +451,7 @@ func Run(opt *options.ServerOption) error {
 		err := actions.RunInit(options)
 
 		if err != nil {
-			log.Fatalf("There was a problem initializing the app: %v", err)
+			return errors.New(fmt.Sprintf("There was a problem initializing the app: %v", err))
 		}
 
 		log.Infof("Successfully initialized the app %v.", opt.AppDir)
@@ -443,7 +463,7 @@ func Run(opt *options.ServerOption) error {
 	kfApp, err := kApp.Load(fs, opt.AppDir, true)
 
 	if err != nil {
-		log.Fatalf("There was a problem loading the app: %v", err)
+		return errors.New(fmt.Sprintf("There was a problem loading the app: %v", err))
 	}
 
 	for idx, registry := range bootConfig.Registries {
@@ -470,13 +490,15 @@ func Run(opt *options.ServerOption) error {
 
 			err = actions.RunRegistryAdd(options)
 			if err != nil {
-				log.Fatalf("There was a problem adding the registry: %v", err)
+				return errors.New(fmt.Sprintf("There was a problem adding registry %v: %v", registry.Name, err))
 			}
 		}
 	}
 
 	// Load default kubeflow apps
-	appGenerate(opt, &kfApp, &fs, bootConfig)
+	if err = appGenerate(opt, &kfApp, &fs, bootConfig); err != nil {
+		return err
+	}
 
 	// Component customization
 	for _, component := range bootConfig.App.Components {
@@ -511,19 +533,24 @@ func Run(opt *options.ServerOption) error {
 		// ks runApply API expects clientcmd.ClientConfig, which kind of have soft dependency on existence of ~/.kube/config
 		// if use k8s client-go API, would be quite verbose if we create all resources one by one.
 		// TODO: use API to create ks Components
-		log.Infof("Apply kubeflow Components...")
-		rawCmd := "ks show default | kubectl apply -f -"
-		applyCmd := exec.Command("bash", "-c", rawCmd)
+		for _, component := range bootConfig.App.Components {
+			log.Infof("Apply kubeflow component %v", component.Name)
+			rawCmd := fmt.Sprintf(
+				"ks apply default -c %v --token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)",
+				component.Name)
+			applyCmd := exec.Command("bash", "-c", rawCmd)
 
-		var out bytes.Buffer
-		var stderr bytes.Buffer
-		applyCmd.Stdout = &out
-		applyCmd.Stderr = &stderr
-		if err := applyCmd.Run(); err != nil {
-			log.Infof("stderr >>> " + fmt.Sprint(err) + ": " + stderr.String())
-			return err
-		} else {
-			log.Infof("Components applied: " + out.String())
+			var out bytes.Buffer
+			var stderr bytes.Buffer
+			applyCmd.Stdout = &out
+			applyCmd.Stderr = &stderr
+			if err := applyCmd.Run(); err != nil {
+				log.Infof("Component apply failed: " + fmt.Sprint(err) + "\n" + out.String() + "\n" + stderr.String())
+				return err
+			} else {
+				// ks apply output to stderr on success case as well
+				log.Infof("Component apply successfully.\n" + out.String() + "\n" + stderr.String())
+			}
 		}
 	}
 	if opt.InCluster && opt.KeepAlive {

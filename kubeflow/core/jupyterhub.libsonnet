@@ -3,7 +3,7 @@
     $.parts(params.namespace).jupyterHubConfigMap(params.jupyterHubAuthenticator, params.disks),
     $.parts(params.namespace).jupyterHubService,
     $.parts(params.namespace).jupyterHubLoadBalancer(params.jupyterHubServiceType),
-    $.parts(params.namespace).jupyterHub(params.jupyterHubImage, params.jupyterNotebookPVCMount, params.cloud),
+    $.parts(params.namespace).jupyterHub(params.jupyterHubImage, params.jupyterNotebookPVCMount, params.cloud, params.jupyterNotebookRegistry, params.jupyterNotebookRepoName),
     $.parts(params.namespace).jupyterHubRole,
     $.parts(params.namespace).jupyterHubServiceAccount,
     $.parts(params.namespace).jupyterHubRoleBinding,
@@ -121,6 +121,27 @@ c.RemoteUserAuthenticator.header_name = 'x-goog-authenticated-user-email'",
         },
         name: "tf-hub-lb",
         namespace: namespace,
+        annotations: {
+          "getambassador.io/config":
+            std.join("\n", [
+              "---",
+              "apiVersion: ambassador/v0",
+              "kind:  Mapping",
+              "name: tf-hub-lb-hub-mapping",
+              "prefix: /hub/",
+              "rewrite: /hub/",
+              "timeout_ms: 300000",
+              "service: tf-hub-lb." + namespace,
+              "---",
+              "apiVersion: ambassador/v0",
+              "kind:  Mapping",
+              "name: tf-hub-lb-user-mapping",
+              "prefix: /user/",
+              "rewrite: /user/",
+              "timeout_ms: 300000",
+              "service: tf-hub-lb." + namespace,
+            ]),
+        },  //annotations
       },
       spec: {
         ports: [
@@ -138,7 +159,7 @@ c.RemoteUserAuthenticator.header_name = 'x-goog-authenticated-user-email'",
     },
 
     // image: Image for JupyterHub
-    jupyterHub(image, notebookPVCMount, cloud): {
+    jupyterHub(image, notebookPVCMount, cloud, registry, repoName): {
       apiVersion: "apps/v1beta1",
       kind: "StatefulSet",
       metadata: {
@@ -189,6 +210,14 @@ c.RemoteUserAuthenticator.header_name = 'x-goog-authenticated-user-email'",
                     name: "CLOUD_NAME",
                     value: cloud,
                   },
+                  {
+                    name: "REGISTRY",
+                    value: registry,
+                  },
+                  {
+                    name: "REPO_NAME",
+                    value: repoName,
+                  },
                 ],
               },  // jupyterHub container
             ],
@@ -220,7 +249,7 @@ c.RemoteUserAuthenticator.header_name = 'x-goog-authenticated-user-email'",
       rules: [
         {
           apiGroups: [
-            "*",
+            "",
           ],
           resources: [
             "pods",
@@ -236,7 +265,7 @@ c.RemoteUserAuthenticator.header_name = 'x-goog-authenticated-user-email'",
         },
         {
           apiGroups: [
-            "*",
+            "",
           ],
           resources: [
             "events",
