@@ -1,58 +1,3 @@
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
-ARG BASE_IMAGE=ubuntu:latest
-#ARG BASE_IMAGE=ubuntu:16.04
-
-FROM $BASE_IMAGE
-
-ARG HTTP_PROXY=""
-ARG HTTPS_PROXY=""
-
-ENV HTTP_PROXY http://192.168.199.99:9999
-ENV HTTPS_PROXY http://192.168.199.99:9999
-ENV http_proxy http://192.168.199.99:9999
-ENV https_proxy http://192.168.199.99:9999
-
-ARG INSTALL_TFMA=yes
-ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
-ARG TF_PACKAGE_PY_27=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp27-none-linux_x86_64.whl
-
-USER root
-
-ENV DEBIAN_FRONTEND noninteractive
-
-ENV NB_USER jovyan
-ENV NB_UID 1000
-ENV HOME /home/$NB_USER
-# We prefer to have a global conda install
-# to minimize the amount of content in $HOME
-ENV CONDA_DIR=/opt/conda
-ENV PATH $CONDA_DIR/bin:$PATH
-
-# Use bash instead of sh
-SHELL ["/bin/bash", "-c"]
-
-RUN apt-get update && apt-get install -yq --no-install-recommends \
-  apt-transport-https \
-  build-essential \
-  bzip2 \
-  ca-certificates \
-  curl \
-  g++ \
-  git \
-  gnupg \
-  graphviz \
-  locales \
-  lsb-release \
-  openssh-client \
-  sudo \
-  unzip \
-  vim \
-  wget \
-  zip \
-  && apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
@@ -75,55 +20,25 @@ RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
     apt-get install -y google-cloud-sdk kubectl
 
 # Install Tini - used as entrypoint for container
-#https_proxy=http://192.168.199.99:9999
-
-
-#RUN cd /tmp && \
-#    wget https://github.com/krallin/tini/releases/download/v0.10.0/tini && \
-#    echo "1361527f39190a7338a0b434bd8c88ff7233ce7b9a4876f3315c22fce7eca1b0 *tini" | sha256sum -c - && \
-#    mv tini /usr/local/bin/tini && \
-#    chmod +x /usr/local/bin/tini
 RUN cd /tmp && \
-    wget https://github.com/krallin/tini/releases/download/v0.18.0/tini && \
+    wget --quiet https://github.com/krallin/tini/releases/download/v0.10.0/tini && \
+    echo "1361527f39190a7338a0b434bd8c88ff7233ce7b9a4876f3315c22fce7eca1b0 *tini" | sha256sum -c - && \
     mv tini /usr/local/bin/tini && \
     chmod +x /usr/local/bin/tini
 
 # Install conda as jovyan user and check the md5 sum provided on the download site
 ENV MINICONDA_VERSION 4.4.10
-#ENV MINICONDA_VERSION 4.5.1
-
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
-    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh
-#    wget https://repo.anaconda.com/archive/Anaconda3-5.1.0-Linux-x86_64.sh
-
-RUN cd /tmp && \
-    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} 
-#    /bin/bash Anaconda3-5.1.0-Linux-x86_64.sh -f -b -p ${CONDA_DIR}
-
-#RUN cd /tmp && \
-#    mkdir -p $CONDA_DIR && \
-#    wget https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-#    echo "bec6203dbb2f53011e974e9bf4d46e93 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
-#    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} && \
-#    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-#    conda config --system --prepend channels conda-forge && \
-#    conda config --system --set auto_update_conda false && \
-#    conda config --system --set show_channel_urls true
-
-
-# Update conda
-# The channels conda-forge will failed, unknown why.
-#   conda config --system --prepend channels conda-forge 
-RUN cd /tmp && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
+    echo "bec6203dbb2f53011e974e9bf4d46e93 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
+    /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} && \
+    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     conda config --system --prepend channels conda-forge && \
     conda config --system --set auto_update_conda false && \
     conda config --system --set show_channel_urls true && \
-    conda update -n base conda --yes && \
-    conda update conda --yes
-
-RUN cd /tmp && \
-    conda update --all --yes && \
+    conda update --all && \
+    conda update conda && \
     conda clean -tipsy
 
 # NOTE: Beyond this point be careful of breaking out
@@ -139,6 +54,9 @@ RUN pip install --upgrade pip && \
     jupyter \
     jupyterhub \
     jupyterlab \
+    mlflow \
+    airflow \
+    tushare \
     # Cleanup
     && conda clean -tipsy
 
@@ -160,17 +78,14 @@ RUN conda create -n py2 python=2 && \
     # tensorflow-model-analysis is only supported for TF 1.6 and above
     if [[ $INSTALL_TFMA == "yes" ]]; then \
       pip install --no-cache-dir tensorflow-model-analysis && \
-      jupyter nbextension install --py --symlink tensorflow_model_analysis --user && \
-      jupyter nbextension enable --py tensorflow_model_analysis --user; \
-    fi
-
-# Install jupyterlab-manager
-RUN conda install --yes \
       # We use --system because if we don't the config is written to the home directory
       # and the changes are lost when we mount a PV over them.
-    jupyter nbextension install --py --system --symlink tensorflow_model_analysis && \
-    jupyter nbextension enable --py --system tensorflow_model_analysis ; \
-
+      jupyter nbextension install --py --system --symlink tensorflow_model_analysis && \
+      jupyter nbextension enable --py --system tensorflow_model_analysis ; \
+    fi \
+    && \
+    # Install jupyterlab-manager
+    conda install --quiet --yes \
     # nodejs required for jupyterlab-manager
     nodejs && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
