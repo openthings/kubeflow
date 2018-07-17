@@ -1,3 +1,49 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
+ARG BASE_IMAGE=ubuntu:latest
+
+FROM $BASE_IMAGE
+
+ARG INSTALL_TFMA=yes
+ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
+ARG TF_PACKAGE_PY_27=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp27-none-linux_x86_64.whl
+
+USER root
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ENV NB_USER jovyan
+ENV NB_UID 1000
+ENV HOME /home/$NB_USER
+# We prefer to have a global conda install
+# to minimize the amount of content in $HOME
+ENV CONDA_DIR=/opt/conda
+ENV PATH $CONDA_DIR/bin:$PATH
+
+# Use bash instead of sh
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -yq --no-install-recommends \
+  apt-transport-https \
+  build-essential \
+  bzip2 \
+  ca-certificates \
+  curl \
+  g++ \
+  git \
+  gnupg \
+  graphviz \
+  locales \
+  lsb-release \
+  openssh-client \
+  sudo \
+  unzip \
+  vim \
+  wget \
+  zip \
+  && apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
@@ -54,9 +100,6 @@ RUN pip install --upgrade pip && \
     jupyter \
     jupyterhub \
     jupyterlab \
-    mlflow \
-    airflow \
-    tushare \
     # Cleanup
     && conda clean -tipsy
 
