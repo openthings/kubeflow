@@ -109,7 +109,7 @@ RUN pip install --upgrade pip && \
     && conda clean -tipsy
 
 # Install iclientpy based python3.
-RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
+RUN conda install -v -y -c http://iclientpy.supermap.io/conda/channel iclientpy
 
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
