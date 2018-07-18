@@ -110,6 +110,9 @@ RUN pip install --upgrade pip && \
 
 
 # Install iclientpy based python3.
+RUN conda install --quiet --yes \
+    # nodejs required for jupyterlab-manager
+    nodejs
 RUN jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager 
 # RUN conda install -v -y -c http://iclientpy.supermap.io/conda/channel iclientpy
