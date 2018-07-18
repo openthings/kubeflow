@@ -5,10 +5,10 @@ ARG BASE_IMAGE=ubuntu:latest
 
 FROM $BASE_IMAGE
 
-ENV HTTP_PROXY http://192.168.199.99:9999
-ENV HTTPS_PROXY http://192.168.199.99:9999
-ENV http_proxy http://192.168.199.99:9999
-ENV https_proxy http://192.168.199.99:9999
+ENV HTTP_PROXY ${HTTP_PROXY}
+ENV HTTPS_PROXY ${HTTP_PROXY}
+ENV http_proxy ${HTTP_PROXY}
+ENV https_proxy ${HTTP_PROXY}
 
 ARG INSTALL_TFMA=yes
 ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
@@ -66,7 +66,7 @@ RUN useradd -M -s /bin/bash -N -u $NB_UID $NB_USER && \
 
 RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
     echo "deb https://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    curl --proxy ${HTTP_PROXY} https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
     apt-get update && \
     apt-get install -y google-cloud-sdk kubectl
 
@@ -110,6 +110,9 @@ RUN pip install --upgrade pip && \
     # Cleanup
     && conda clean -tipsy
 
+# Install iclientpy based python3.
+RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
+
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
 RUN conda create -n py2 python=2 && \
@@ -150,6 +153,7 @@ COPY --chown=jovyan:users  jupyter_notebook_config.py /tmp
 RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
     source activate py2 && \
     pip --no-cache-dir install -r /tmp/requirements.txt
+
 
 # Wipe $HOME for PVC detection later
 WORKDIR $HOME
