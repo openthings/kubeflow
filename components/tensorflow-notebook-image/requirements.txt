@@ -13,6 +13,11 @@ sklearn
 pandas
 keras
 matplotlib
+lxml
+bs4
+airflow
+mlflow
+tushare
 
 # Google Cloud related packages
 google-cloud
