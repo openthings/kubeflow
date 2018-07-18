@@ -5,6 +5,11 @@ ARG BASE_IMAGE=ubuntu:latest
 
 FROM $BASE_IMAGE
 
+ENV HTTP_PROXY http://192.168.199.99:9999
+ENV HTTPS_PROXY http://192.168.199.99:9999
+ENV http_proxy http://192.168.199.99:9999
+ENV https_proxy http://192.168.199.99:9999
+
 ARG INSTALL_TFMA=yes
 ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
 ARG TF_PACKAGE_PY_27=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp27-none-linux_x86_64.whl
@@ -100,6 +105,8 @@ RUN pip install --upgrade pip && \
     jupyter \
     jupyterhub \
     jupyterlab \
+    mlflow \
+    airflow \
     # Cleanup
     && conda clean -tipsy
 
