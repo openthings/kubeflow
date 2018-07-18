@@ -100,6 +100,8 @@ RUN pip install --upgrade pip && \
     jupyter \
     jupyterhub \
     jupyterlab \
+    mlflow \
+    airflow \
     # Cleanup
     && conda clean -tipsy
 
