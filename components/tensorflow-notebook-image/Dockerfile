@@ -110,6 +110,9 @@ RUN pip install --upgrade pip && \
     # Cleanup
     && conda clean -tipsy
 
+# Install iclientpy based python3.
+RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
+
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
 RUN conda create -n py2 python=2 && \
@@ -150,6 +153,7 @@ COPY --chown=jovyan:users  jupyter_notebook_config.py /tmp
 RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
     source activate py2 && \
     pip --no-cache-dir install -r /tmp/requirements.txt
+
 
 # Wipe $HOME for PVC detection later
 WORKDIR $HOME
