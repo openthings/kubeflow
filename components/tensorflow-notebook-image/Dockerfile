@@ -117,6 +117,7 @@ RUN conda install --quiet --yes \
     nodejs
 RUN jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager 
+RUN conda install --quiet --yes -c conda-forge ipyleaflet    
 RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
 
 # Install python2 and ipython2 kernel for jupyter notebook
