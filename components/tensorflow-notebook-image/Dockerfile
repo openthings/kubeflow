@@ -138,6 +138,7 @@ RUN pip install --upgrade pip && \
     ${TF_PACKAGE} \
     # Jupyter Stuff
     lxml bs4 \
+    ipyleaflet \
     jupyter \
     jupyterhub \
     jupyterlab \
@@ -156,9 +157,12 @@ RUN pip install --upgrade pip && \
 RUN conda install --quiet --yes \
     # nodejs required for jupyterlab-manager
     nodejs=8.11.3
+
+#RUN conda install --quiet --yes -c conda-forge ipyleaflet 
+#RUN pip install ipyleaflet
+
 RUN jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager 
-RUN conda install --quiet --yes -c conda-forge ipyleaflet 
     
 #RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
 
