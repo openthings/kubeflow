@@ -204,9 +204,12 @@ RUN jupyter labextension install jupyter-leaflet && \
 # NB: the COPY chown can't expand a bash variable for NB_USER
 COPY --chown=jovyan:users requirements.txt /tmp
 COPY --chown=jovyan:users  jupyter_notebook_config.py /tmp
-RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
-    source activate py2 && \
-    pip --no-cache-dir install -r /tmp/requirements.txt
+
+RUN pip --no-cache-dir install -r /tmp/requirements.txt
+
+#RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
+#    source activate py2 && \
+#    pip --no-cache-dir install -r /tmp/requirements.txt
 
 # ====================================================================
 # Clean the proxy config.
