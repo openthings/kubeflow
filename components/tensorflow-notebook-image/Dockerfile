@@ -1,7 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-ARG BASE_IMAGE=ubuntu:latest
+ARG BASE_IMAGE=ubuntu:16:04
 
 FROM $BASE_IMAGE
 
@@ -33,7 +33,9 @@ ENV PATH $CONDA_DIR/bin:$PATH
 # Use bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
+
 # ====================================================================
+RUN echo "http_proxy: "$http_proxy
 RUN apt-get update && apt-get install -yq --no-install-recommends \
   apt-transport-https \
   build-essential \
