@@ -145,7 +145,7 @@ def build_tf_notebook(args):
 
   print("")
   print("===============================================")
-  print(command)
+  print("RUN: ",command)
   print("===============================================")
   print("")
 

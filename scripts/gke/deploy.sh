@@ -100,7 +100,6 @@ IAP_IAM_ENTRY=${IAP_IAM_ENTRY:-"user:${EMAIL}"}
 if [ ! -d "${KUBEFLOW_DM_DIR}" ]; then
   echo creating Deployment Manager configs in directory "${KUBEFLOW_DM_DIR}"
   cp -r "${KUBEFLOW_REPO}/scripts/gke/deployment_manager_configs" "${KUBEFLOW_DM_DIR}"
-  cd "${KUBEFLOW_DM_DIR}"
   # Set values in DM config file
   sed -i.bak "s/zone: us-central1-a/zone: ${ZONE}/" "${KUBEFLOW_DM_DIR}/${CONFIG_FILE}"
   sed -i.bak "s/users:/users: [\"${IAP_IAM_ENTRY}\"]/" "${KUBEFLOW_DM_DIR}/${CONFIG_FILE}"
@@ -113,6 +112,7 @@ if [ ! -d "${KUBEFLOW_DM_DIR}" ]; then
 else
   echo Deployment Manager configs already exist in directory "${KUBEFLOW_DM_DIR}"
 fi
+cd "${KUBEFLOW_DM_DIR}"
 
 # Create GCFS Instance in parallel with deployment manager to speed things up
 gcloud beta filestore instances create ${GCFS_INSTANCE} \
@@ -197,6 +197,8 @@ ks generate jupyterhub jupyterhub --cloud=${KUBEFLOW_CLOUD} --disks="kubeflow-gc
 ks generate centraldashboard centraldashboard
 ks generate tf-job-operator tf-job-operator
 
+ks generate argo argo
+
 if ! ${PRIVATE_CLUSTER}; then
   # Enable collection of anonymous usage metrics
   # Skip this step if you don't want to enable collection.
@@ -213,6 +215,7 @@ if ${KUBEFLOW_DEPLOY}; then
   ks apply default -c jupyterhub
   ks apply default -c centraldashboard
   ks apply default -c tf-job-operator
+  ks apply default -c argo
   if ! ${PRIVATE_CLUSTER}; then
     ks apply default -c spartakus
     ks apply default -c cloud-endpoints
