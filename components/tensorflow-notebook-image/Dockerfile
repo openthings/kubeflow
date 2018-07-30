@@ -5,10 +5,14 @@ ARG BASE_IMAGE=ubuntu:latest
 
 FROM $BASE_IMAGE
 
+# ====================================================================
+# Add proxy, using --build-arg "HTTP_PROXY=http://192.168.199.99:9999"
+
 ENV HTTP_PROXY ${HTTP_PROXY}
 ENV HTTPS_PROXY ${HTTP_PROXY}
 ENV http_proxy ${HTTP_PROXY}
 ENV https_proxy ${HTTP_PROXY}
+# ====================================================================
 
 ARG INSTALL_TFMA=yes
 ARG TF_PACKAGE=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.7.0-cp36-cp36m-linux_x86_64.whl
@@ -29,6 +33,7 @@ ENV PATH $CONDA_DIR/bin:$PATH
 # Use bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
+# ====================================================================
 RUN apt-get update && apt-get install -yq --no-install-recommends \
   apt-transport-https \
   build-essential \
@@ -63,7 +68,11 @@ ENV LANGUAGE en_US.UTF-8
 RUN useradd -M -s /bin/bash -N -u $NB_UID $NB_USER && \
     chown -R ${NB_USER}:users /usr/local/bin && \
     mkdir -p $HOME
+# ====================================================================
 
+# ====================================================================
+# Install cloud packages.
+# ====================================================================
 RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
     echo "deb https://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
     curl --proxy ${HTTP_PROXY} https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
@@ -77,15 +86,38 @@ RUN cd /tmp && \
     mv tini /usr/local/bin/tini && \
     chmod +x /usr/local/bin/tini
 
+# ====================================================================
 # Install conda as jovyan user and check the md5 sum provided on the download site
+# ====================================================================
 ENV MINICONDA_VERSION 4.4.10
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
     wget --quiet https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     echo "bec6203dbb2f53011e974e9bf4d46e93 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
     /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p ${CONDA_DIR} && \
-    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-    conda config --system --prepend channels conda-forge && \
+    rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh
+
+# ====================================================================
+# Add conda install mirror and  pip install mirror.
+# ====================================================================
+RUN echo $http_proxy && \
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/ && \
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/ && \
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/ && \
+    conda config --set show_channel_urls yes
+
+RUN echo "[global] \
+index-url = http://pypi.tuna.tsinghua/simple \
+trusted-host = \
+    pypi.tuna.tsinghua \
+timeout = 120 \
+" > /etc/pip.conf
+# ====================================================================
+
+# ====================================================================
+# Conda config and jupyter config.
+# ====================================================================
+RUN conda config --system --prepend channels conda-forge && \
     conda config --system --set auto_update_conda false && \
     conda config --system --set show_channel_urls true && \
     conda update --all && \
@@ -107,9 +139,12 @@ RUN pip install --upgrade pip && \
     jupyterlab \
     # Cleanup
     && conda clean -tipsy
+# ====================================================================
 
+# ====================================================================
 # Install iclientpy based python3.
-RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
+# RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
+# ====================================================================
 
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
@@ -152,6 +187,14 @@ RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
     source activate py2 && \
     pip --no-cache-dir install -r /tmp/requirements.txt
 
+# ====================================================================
+# Clean the proxy config.
+# ====================================================================
+ENV HTTP_PROXY ""
+ENV HTTPS_PROXY ""
+ENV http_proxy ""
+ENV https_proxy ""
+# ====================================================================
 
 # Wipe $HOME for PVC detection later
 WORKDIR $HOME
