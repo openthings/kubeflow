@@ -112,14 +112,15 @@ RUN echo "[global] \
 index-url = http://pypi.tuna.tsinghua/simple \
 trusted-host = \
     pypi.tuna.tsinghua \
-timeout = 120 \
+#timeout = 120 \
 " > /etc/pip.conf
 # ====================================================================
 
 # ====================================================================
 # Conda config and jupyter config.
 # ====================================================================
-RUN conda config --system --prepend channels conda-forge && \
+#RUN conda config --system --prepend channels conda-forge && \
+RUN conda config --system --append channels conda-forge && \
     conda config --system --set auto_update_conda false && \
     conda config --system --set show_channel_urls true && \
     conda update --all && \
@@ -136,6 +137,7 @@ RUN pip install --upgrade pip && \
     # Tensorflow
     ${TF_PACKAGE} \
     # Jupyter Stuff
+    lxml bs4 \
     jupyter \
     jupyterhub \
     jupyterlab \
@@ -153,11 +155,12 @@ RUN pip install --upgrade pip && \
 # Install iclientpy based python3.
 RUN conda install --quiet --yes \
     # nodejs required for jupyterlab-manager
-    nodejs
+    nodejs=8.11.3
 RUN jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager 
-RUN conda install --quiet --yes -c conda-forge ipyleaflet    
-RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
+RUN conda install --quiet --yes -c conda-forge ipyleaflet 
+    
+#RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
 
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
