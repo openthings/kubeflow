@@ -75,7 +75,7 @@ RUN useradd -M -s /bin/bash -N -u $NB_UID $NB_USER && \
 # ====================================================================
 RUN export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
     echo "deb https://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl --proxy ${HTTP_PROXY} https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - &&  \
     apt-get update && \
     apt-get install -y google-cloud-sdk kubectl
 
@@ -137,6 +137,8 @@ RUN pip install --upgrade pip && \
     jupyter \
     jupyterhub \
     jupyterlab \
+    mlflow \
+    airflow \
     # Cleanup
     && conda clean -tipsy
 # ====================================================================
@@ -145,6 +147,15 @@ RUN pip install --upgrade pip && \
 # Install iclientpy based python3.
 # RUN conda install -y -c http://iclientpy.supermap.io/conda/channel iclientpy
 # ====================================================================
+
+# Install iclientpy based python3.
+RUN conda install --quiet --yes \
+    # nodejs required for jupyterlab-manager
+    nodejs
+RUN jupyter labextension install jupyter-leaflet && \
+    jupyter labextension install @jupyter-widgets/jupyterlab-manager 
+RUN conda install --quiet --yes -c conda-forge ipyleaflet    
+RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
 
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
@@ -174,6 +185,7 @@ RUN conda create -n py2 python=2 && \
     conda install --quiet --yes \
     # nodejs required for jupyterlab-manager
     nodejs && \
+    jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
     # Do chown in this layer for significant size savings
     chown -R ${NB_USER}:users $HOME && \
