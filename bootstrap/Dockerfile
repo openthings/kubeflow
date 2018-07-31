@@ -1,5 +1,6 @@
-# TODO(jlewi): How can we make it work with golang:1.8.2-alpine
-FROM golang:1.8.2 as builder
+# bootstrapper-builder contains the tool chain we need to build the image.
+# This primarily means glide.
+FROM gcr.io/kubeflow-images-public/bootstrapper-builder:v20180712-4adef8c0 as builder
 
 RUN mkdir -p /opt/kubeflow
 
@@ -8,9 +9,15 @@ ENV PATH /go/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap
 COPY ./ $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap/
 
+# Pull in dependencies. We don't check in vendor because that bloats
+# the size of kubeflow/kubeflow and we want to keep it small since
+# Users clone that repo to get our registry.
+RUN cd $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap/ && \
+    glide install -v
+
 RUN go build -i -o /opt/kubeflow/bootstrapper ${GOPATH}/src/github.com/kubeflow/kubeflow/bootstrap/cmd/bootstrap/main.go
 
-FROM golang:1.8.2
+FROM golang:1.10.3
 
 # We need gcloud to get gke credentials.
 RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.tar.gz && \
@@ -34,23 +41,20 @@ RUN git clone https://github.com/ksonnet/ksonnet.git /opt/ksonnet && \
 	cd /opt/ksonnet && \
 	git checkout v0.10.0-alpha.3
 
-ARG kubeflowversion=v0.1.3
-RUN git clone --depth 1 --branch $kubeflowversion https://github.com/kubeflow/kubeflow.git /opt/kubeflow
+ARG registries
+COPY $registries /opt/registries
 
-# TODO(jlewi): bootstrap is using an early dev version of ks (0.10) so we need
-# to build ks at the same commit because the generated app won't work with
-# earlier versions of ks.
-RUN cd /opt/ksonnet && \
-	mkdir -p /tmp/go/src/github.com/ksonnet && \
-	ln -sf /opt/ksonnet /tmp/go/src/github.com/ksonnet/ksonnet && \
-    cd /tmp/go/src/github.com/ksonnet/ksonnet && \
-	export GOPATH=/tmp/go && \
-	make install && \
-    cp /tmp/go/bin/ks /usr/local/bin && \
-    chmod a+rx /usr/local/bin/ks
+# bootstrap is using ksonnet 0.11.0
+RUN wget -q https://github.com/ksonnet/ksonnet/releases/download/v0.11.0/ks_0.11.0_linux_amd64.tar.gz && \
+    tar xzf ks_0.11.0_linux_amd64.tar.gz -C . && \
+    rm ks_0.11.0_linux_amd64.tar.gz && \
+    cp ks_0.11.0_linux_amd64/ks /usr/local/bin && \
+    rm -rf ks_0.11.0_linux_amd64
 
 COPY --from=builder /opt/kubeflow/bootstrapper /opt/kubeflow/
 COPY start.sh /opt/kubeflow/
+COPY config/default.yaml /opt/kubeflow/
+COPY image_registries.yaml /opt/kubeflow/
 
 RUN chmod a+rx /opt/kubeflow/bootstrapper
 RUN chmod a+rx /opt/kubeflow/start.sh

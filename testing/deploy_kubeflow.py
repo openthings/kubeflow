@@ -4,6 +4,9 @@ import os
 
 import yaml
 from kubernetes.config import kube_config
+# TODO(jlewi): We should be using absolute imports always.
+# So it should be from testing import deploy_utils because testing
+# is the top level python package.
 from . import deploy_utils
 from kubeflow.testing import test_helper
 from kubeflow.testing import util  # pylint: disable=no-name-in-module
@@ -44,19 +47,29 @@ def deploy_kubeflow(test_case):
   app_dir = deploy_utils.setup_kubeflow_ks_app(test_dir, namespace, args.github_token, api_client)
 
 
+  # ks generate tf-job-operator tf-job-operator
   # TODO(jlewi): We don't need to generate a core component if we are
   # just deploying TFServing. Might be better to refactor this code.
   # Deploy Kubeflow
   util.run(
     [
-      "ks", "generate", "core", "kubeflow-core", "--name=kubeflow-core",
+      "ks", "generate", "tf-job-operator", "tf-job-operator",
+      "--namespace=" + namespace,
+      "--tfJobImage=gcr.io/kubeflow-images-public/tf_operator:v20180522-77375baf",
+      "--tfJobVersion=v1alpha1"
+    ],
+    cwd=app_dir)
+
+  util.run(
+    [
+      "ks", "generate", "pytorch-operator", "pytorch-operator",
       "--namespace=" + namespace
     ],
     cwd=app_dir)
 
   util.run(
     [
-      "ks", "generate", "pytorch-operator", "pytorch-operator", "--name=pytorch-operator",
+      "ks", "generate", "jupyterhub", "jupyterhub",
       "--namespace=" + namespace
     ],
     cwd=app_dir)
@@ -66,9 +79,11 @@ def deploy_kubeflow(test_case):
     "apply",
     "default",
     "-c",
-    "kubeflow-core",
+    "tf-job-operator",
     "-c",
     "pytorch-operator",
+    "-c",
+    "jupyterhub",
   ]
 
   if args.as_gcloud_user:
