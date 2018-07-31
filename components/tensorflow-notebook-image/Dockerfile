@@ -119,7 +119,8 @@ trusted-host = \
 # ====================================================================
 # Conda config and jupyter config.
 # ====================================================================
-RUN conda config --system --prepend channels conda-forge && \
+#RUN conda config --system --prepend channels conda-forge && \
+RUN conda config --system --append channels conda-forge && \
     conda config --system --set auto_update_conda false && \
     conda config --system --set show_channel_urls true && \
     conda update --all && \
@@ -136,6 +137,8 @@ RUN pip install --upgrade pip && \
     # Tensorflow
     ${TF_PACKAGE} \
     # Jupyter Stuff
+    lxml bs4 \
+    ipyleaflet \
     jupyter \
     jupyterhub \
     jupyterlab \
@@ -153,53 +156,60 @@ RUN pip install --upgrade pip && \
 # Install iclientpy based python3.
 RUN conda install --quiet --yes \
     # nodejs required for jupyterlab-manager
-    nodejs
+    nodejs=8.11.3
+
+#RUN conda install --quiet --yes -c conda-forge ipyleaflet 
+#RUN pip install ipyleaflet
+
 RUN jupyter labextension install jupyter-leaflet && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager 
-RUN conda install --quiet --yes -c conda-forge ipyleaflet    
-RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
+    
+#RUN conda install --quiet --yes -c http://iclientpy.supermap.io/conda/channel iclientpy
 
 # Install python2 and ipython2 kernel for jupyter notebook
 # Install tf packages which only support py2
-RUN conda create -n py2 python=2 && \
-    source activate py2 && \
-    pip install --upgrade pip && \
-    pip --no-cache-dir install \
-    ipykernel \
-    # Tensorflow
-    ${TF_PACKAGE_PY_27} \
-    # Tensorflow packages which only supports python 2
-    tensorflow-transform \
-    tensorflow-serving-api \
-    # ipykernel for python 2 jupyter notebook kernel
-    && \
-    python -m ipykernel install && \
-    # tensorflow-model-analysis is only supported for TF 1.6 and above
-    if [[ $INSTALL_TFMA == "yes" ]]; then \
-      pip install --no-cache-dir tensorflow-model-analysis && \
-      # We use --system because if we don't the config is written to the home directory
-      # and the changes are lost when we mount a PV over them.
-      jupyter nbextension install --py --system --symlink tensorflow_model_analysis && \
-      jupyter nbextension enable --py --system tensorflow_model_analysis ; \
-    fi \
-    && \
-    # Install jupyterlab-manager
-    conda install --quiet --yes \
-    # nodejs required for jupyterlab-manager
-    nodejs && \
-    jupyter labextension install jupyter-leaflet && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
-    # Do chown in this layer for significant size savings
-    chown -R ${NB_USER}:users $HOME && \
-    chown -R ${NB_USER}:users $CONDA_DIR
+#RUN conda create -n py2 python=2 && \
+#    source activate py2 && \
+#    pip install --upgrade pip && \
+#    pip --no-cache-dir install \
+#    ipykernel \
+#    # Tensorflow
+#    ${TF_PACKAGE_PY_27} \
+#    # Tensorflow packages which only supports python 2
+#    tensorflow-transform \
+#    tensorflow-serving-api \
+#    # ipykernel for python 2 jupyter notebook kernel
+#    && \
+#    python -m ipykernel install && \
+#    # tensorflow-model-analysis is only supported for TF 1.6 and above
+#    if [[ $INSTALL_TFMA == "yes" ]]; then \
+#      pip install --no-cache-dir tensorflow-model-analysis && \
+#      # We use --system because if we don't the config is written to the home directory
+#      # and the changes are lost when we mount a PV over them.
+#      jupyter nbextension install --py --system --symlink tensorflow_model_analysis && \
+#      jupyter nbextension enable --py --system tensorflow_model_analysis ; \
+#    fi \
+#    && \
+#    # Install jupyterlab-manager
+#    conda install --quiet --yes \
+#    # nodejs required for jupyterlab-manager
+#    nodejs && \
+#    jupyter labextension install jupyter-leaflet && \
+#    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
+#    # Do chown in this layer for significant size savings
+#    chown -R ${NB_USER}:users $HOME && \
+#    chown -R ${NB_USER}:users $CONDA_DIR
 
 # Install common packages from requirements.txt for both python2 and python3
 # NB: the COPY chown can't expand a bash variable for NB_USER
 COPY --chown=jovyan:users requirements.txt /tmp
 COPY --chown=jovyan:users  jupyter_notebook_config.py /tmp
-RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
-    source activate py2 && \
-    pip --no-cache-dir install -r /tmp/requirements.txt
+
+RUN pip --no-cache-dir install -r /tmp/requirements.txt
+
+#RUN pip --no-cache-dir install -r /tmp/requirements.txt && \
+#    source activate py2 && \
+#    pip --no-cache-dir install -r /tmp/requirements.txt
 
 # ====================================================================
 # Clean the proxy config.
