@@ -132,8 +132,8 @@ RUN conda config --system --append channels conda-forge && \
 # The image size can grow significantly.
 
 # Install base python3 packages
-RUN pip install --upgrade pip && \
-    pip --no-cache-dir install \
+RUN https_proxy="" pip install --upgrade pip
+RUN pip --no-cache-dir install \
     # Tensorflow
     ${TF_PACKAGE} \
     # Jupyter Stuff
