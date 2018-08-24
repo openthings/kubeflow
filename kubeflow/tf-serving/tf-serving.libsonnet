@@ -26,8 +26,8 @@
     // in which case the image used will still depend on whether GPUs are used or not.
     // Users can also override modelServerImage in which case the user supplied value will always be used
     // regardless of numGpus.
-    defaultCpuImage: "gcr.io/kubeflow-images-public/tensorflow-serving-1.7:v20180604-0da89b8a",
-    defaultGpuImage: "gcr.io/kubeflow-images-public/tensorflow-serving-1.6gpu:v20180604-0da89b8a",
+    defaultCpuImage: "tensorflow/serving:1.8.0",
+    defaultGpuImage: "tensorflow/serving:1.10.0-gpu",
     modelServerImage: if $.params.numGpus == 0 then
       $.params.defaultCpuImage
     else
@@ -52,10 +52,10 @@
     //  Name of the k8s secrets containing S3 credentials
     s3SecretName: "",
     // Name of the key in the k8s secret containing AWS_ACCESS_KEY_ID.
-    s3SecretAccesskeyidKeyName: "",
+    s3SecretAccesskeyidKeyName: "AWS_ACCESS_KEY_ID",
 
     // Name of the key in the k8s secret containing AWS_SECRET_ACCESS_KEY.
-    s3SecretSecretaccesskeyKeyName: "",
+    s3SecretSecretaccesskeyKeyName: "AWS_SECRET_ACCESS_KEY",
 
     // S3 region
     s3AwsRegion: "us-west-1",
@@ -114,8 +114,10 @@
       name: $.params.name,
       image: $.params.modelServerImage,
       imagePullPolicy: "IfNotPresent",
-      args: [
+      command: [
         "/usr/bin/tensorflow_model_server",
+      ],
+      args: [
         "--port=9000",
         "--model_name=" + $.params.modelName,
         "--model_base_path=" + $.params.modelPath,

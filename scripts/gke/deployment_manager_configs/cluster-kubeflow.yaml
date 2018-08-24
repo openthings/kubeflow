@@ -27,7 +27,8 @@ resources:
 - name: kubeflow
   type: cluster.jinja
   properties:
-    zone: us-central1-a
+    # You need to use a zone with Haswell because that's what TFServing requires.
+    zone: SET_THE_ZONE
     # Set this to v1beta1 to use beta features such as private clusters,
     gkeApiVersion: v1
     # An arbitrary string appending to name of nodepools
@@ -38,6 +39,13 @@ resources:
     # Two is small enough to fit within default quota.
     cpu-pool-initialNodeCount: 2
     gpu-pool-initialNodeCount: 0
+    # Autoscaling parameters
+    cpu-pool-enable-autoscaling: true
+    cpu-pool-min-nodes: 0
+    cpu-pool-max-nodes: 10
+    gpu-pool-enable-autoscaling: true
+    gpu-pool-min-nodes: 0
+    gpu-pool-max-nodes: 10
     # Whether to deploy the new Stackdriver Kubernetes agents
     stackdriver-kubernetes: false
     securityConfig:

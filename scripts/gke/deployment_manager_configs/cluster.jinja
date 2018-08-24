@@ -63,23 +63,10 @@ resources:
     zone: {{ properties['zone'] }}
     cluster:
       name: {{ CLUSTER_NAME }}
-      # Create a very small minimal pool. Actual nodes will be managed
-      # as additional node pools. This makes it easier to
-      initialNodeCount: {{ properties['cpu-pool-initialNodeCount'] }}
-      {% if properties['stackdriver-kubernetes'] %}
-      # TODO: remove alpha when 10.2 is public.
-      # https://github.com/kubeflow/kubeflow/issues/821
-      enableKubernetesAlpha: true
+      initialClusterVersion: 1.10.6-gke.1
       # We need 1.10.2 to support Stackdrivier GKE.
-      initialClusterVersion: 1.10.2-gke.0
-      # Logging and monitoring have default value [logging/monitoring].googleapis.com
-      # if not set. We are using the new Stackdricer Kubernetes agents here.
-      # See cloud.google.com/monitoring/kubernetes-engine/.
-      loggingService: logging.googleapis.com/kubernetes
-      monitoringService: monitoring.googleapis.com/kubernetes
-      {% else %}
-      initialClusterVersion: 1.9.6-gke.1
-      {% endif %}
+      # loggingService: none
+      # monitoringService: none
       {% if properties['gkeApiVersion'] == 'v1beta1' %}
       podSecurityPolicyConfig:
         enabled: {{ properties['securityConfig']['podSecurityPolicy'] }}
@@ -97,14 +84,25 @@ resources:
           {{ properties['securityConfig']['masterAuthorizedNetworksConfigCidr'] }}
         {% endif %}
       {% endif %}
-      nodeConfig:
-        machineType: n1-standard-8
-        serviceAccount: {{ KF_VM_SA_NAME }}@{{ env['project'] }}.iam.gserviceaccount.com
-        {% if properties['securityConfig']['secureNodeMetadata'] %}
-        workloadMetadataConfig:
-          nodeMetadata: SECURE
-        {% endif %}
-        oauthScopes: {{ VM_OAUTH_SCOPES }}
+      nodePools:
+      - name: default-pool
+        initialNodeCount: {{ properties['cpu-pool-initialNodeCount'] }}
+        autoscaling:
+          enabled: {{ properties['cpu-pool-enable-autoscaling'] }}
+          {% if properties['cpu-pool-enable-autoscaling'] %}
+          minNodeCount: {{ properties['cpu-pool-min-nodes'] }}
+          maxNodeCount: {{ properties['cpu-pool-max-nodes'] }}
+          {% endif %}
+        config:
+          {% if properties['securityConfig']['secureNodeMetadata'] %}
+          workloadMetadataConfig:
+            nodeMetadata: SECURE
+          {% endif %}
+          machineType: n1-standard-8
+          serviceAccount: {{ KF_VM_SA_NAME }}@{{ env['project'] }}.iam.gserviceaccount.com
+          oauthScopes: {{ VM_OAUTH_SCOPES }}
+          # Set min cpu platform to ensure AVX2 is supported.
+          minCpuPlatform: 'Intel Haswell'
   metadata:
     dependsOn:
     - {{ KF_VM_SA_NAME }}
@@ -127,6 +125,12 @@ resources:
     nodePool:
       name: gpu-pool
       initialNodeCount: {{ properties['gpu-pool-initialNodeCount'] }}
+      autoscaling:
+        enabled: {{ properties['gpu-pool-enable-autoscaling'] }}
+        {% if properties['gpu-pool-enable-autoscaling'] %}
+        minNodeCount: {{ properties['gpu-pool-min-nodes'] }}
+        maxNodeCount: {{ properties['gpu-pool-max-nodes'] }}
+        {% endif %}
       config:
         {% if properties['securityConfig']['secureNodeMetadata'] %}
         workloadMetadataConfig:
@@ -135,6 +139,8 @@ resources:
         machineType: n1-standard-8
         serviceAccount: {{ KF_VM_SA_NAME }}@{{ env['project'] }}.iam.gserviceaccount.com
         oauthScopes: {{ VM_OAUTH_SCOPES }}
+        # Set min cpu platform to ensure AVX2 is supported.
+        minCpuPlatform: 'Intel Haswell'
         accelerators:
           - acceleratorCount: 1
             acceleratorType: nvidia-tesla-k80
