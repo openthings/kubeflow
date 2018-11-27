@@ -22,7 +22,7 @@ the results
 
 Example invocation
 
-python python -m testing.test_jsonnet --test_files_dirs=/kubeflow/core/tests,/kubeflow/iap/tests --artifacts_dir=/tmp/artifacts
+python python -m testing.test_jsonnet --test_files_dirs=/kubeflow/application/tests,/kubeflow/core/tests,/kubeflow/jupyter/tests,/kubeflow/iap/tests,/kubeflow/tensorboard/tests,/kubeflow/examples/tests,/kubeflow/metacontroller/tests,/kubeflow/profiles/tests,/kubeflow/tf-training/tests --artifacts_dir=/tmp/artifacts
 
 """
 
@@ -100,5 +100,5 @@ if __name__ == "__main__":
   test_case = test_helper.TestCase(
     name='test_jsonnet', test_func=test_jsonnet)
   test_suite = test_helper.init(
-    name='', test_cases=[test_case])
+    name='jsonnet_test_suite', test_cases=[test_case])
   test_suite.run()

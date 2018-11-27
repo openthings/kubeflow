@@ -3,10 +3,15 @@
     $.parts(params, namespace).coreService,
     $.parts(params, namespace).coreDeployment,
     $.parts(params, namespace).dbService,
+    $.parts(params, namespace).dbPVC,
     $.parts(params, namespace).dbDeployment,
     $.parts(params, namespace).clusterRole,
     $.parts(params, namespace).clusterRoleBinding,
     $.parts(params, namespace).serviceAccount,
+    $.parts(params, namespace).coreRestService,
+    $.parts(params, namespace).coreRestDeployment,
+    $.parts(params, namespace).uiService,
+    $.parts(params, namespace).uiDeployment,
   ],
 
   parts(params, namespace):: {
@@ -182,6 +187,29 @@
       },
     },
 
+    dbPVC: {
+      apiVersion: "v1",
+      kind: "PersistentVolumeClaim",
+      metadata: {
+        labels: {
+          app: "vizier",
+          component: "db",
+        },
+        name: "vizier-db",
+        namespace: namespace,
+      },
+      spec: {
+        accessModes: [
+          "ReadWriteOnce",
+        ],
+        resources: {
+          requests: {
+            storage: "10Gi",
+          },
+        },
+      },
+    },  // dbPVC
+
     dbDeployment: {
       apiVersion: "extensions/v1beta1",
       kind: "Deployment",
@@ -222,12 +250,31 @@
                 ],
                 image: params.vizierDbImage,
                 name: "vizier-db",
+                // If we mount block device with ext4 fs as pvc, default data dir has lost+found dir in, and mysql fails to init
+                args: [
+                  "--datadir",
+                  "/var/lib/mysql/datadir",
+                ],
+                volumeMounts: [
+                  {
+                    name: "vizier-db",
+                    mountPath: "/var/lib/mysql",
+                  },
+                ],
                 ports: [
                   {
                     containerPort: 3306,
                     name: "dbapi",
                   },
                 ],
+              },
+            ],
+            volumes: [
+              {
+                name: "vizier-db",
+                persistentVolumeClaim: {
+                  claimName: "vizier-db",
+                },
               },
             ],
           },
@@ -262,5 +309,143 @@
       },
     },  // dbService
 
+    coreRestService: {
+      apiVersion: "v1",
+      kind: "Service",
+      metadata: {
+        labels: {
+          app: "vizier",
+          component: "core-rest",
+        },
+        name: "vizier-core-rest",
+        namespace: namespace,
+      },
+      spec: {
+        ports: [
+          {
+            name: "api",
+            port: 80,
+            protocol: "TCP",
+          },
+        ],
+        selector: {
+          app: "vizier",
+          component: "core-rest",
+        },
+        type: "ClusterIP",
+      },
+    },  // uiService
+
+    coreRestDeployment: {
+      apiVersion: "extensions/v1beta1",
+      kind: "Deployment",
+      metadata: {
+        labels: {
+          app: "vizier",
+          component: "core-rest",
+        },
+        name: "vizier-core-rest",
+        namespace: namespace,
+      },
+      spec: {
+        replicas: 1,
+        template: {
+          metadata: {
+            labels: {
+              app: "vizier",
+              component: "core-rest",
+            },
+            name: "vizier-core-rest",
+          },
+          spec: {
+            containers: [
+              {
+                args: [
+                  "./vizier-manager-rest",
+                ],
+                image: params.vizierCoreRestImage,
+                name: "vizier-core-rest",
+                ports: [
+                  {
+                    containerPort: 80,
+                    name: "api",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },  // coreRestDeployment
+
+
+    uiService: {
+      apiVersion: "v1",
+      kind: "Service",
+      metadata: {
+        labels: {
+          app: "vizier",
+          component: "ui",
+        },
+        name: "katib-ui",
+        namespace: namespace,
+      },
+      spec: {
+        ports: [
+          {
+            name: "ui",
+            port: 80,
+            protocol: "TCP",
+          },
+        ],
+        selector: {
+          app: "vizier",
+          component: "ui",
+        },
+        type: "ClusterIP",
+      },
+    },  // uiService
+
+    uiDeployment: {
+      apiVersion: "extensions/v1beta1",
+      kind: "Deployment",
+      metadata: {
+        labels: {
+          app: "vizier",
+          component: "ui",
+        },
+        name: "katib-ui",
+        namespace: namespace,
+      },
+      spec: {
+        replicas: 1,
+        template: {
+          metadata: {
+            labels: {
+              app: "vizier",
+              component: "ui",
+            },
+            name: "katib-ui",
+          },
+          spec: {
+            containers: [
+              {
+                args: [
+                  "./katib-ui",
+                ],
+                image: params.katibUIImage,
+                name: "katib-ui",
+                ports: [
+                  {
+                    containerPort: 80,
+                    name: "ui",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },  // uiDeployment
   },  //parts
 }

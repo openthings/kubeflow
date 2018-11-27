@@ -4,6 +4,11 @@ ARG GOLANG_VERSION=1.10.3
 ARG BUILDER_IMG=gcr.io/kubeflow-images-public/bootstrapper-builder
 ARG BUILDER_IMG_VERSION=latest
 FROM ${BUILDER_IMG}:${BUILDER_IMG_VERSION} AS build_base_remote
+# Copy the src
+COPY ./ $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap/
+
+RUN go build ${GOLANG_GCFLAGS} -i -o /opt/kubeflow/bootstrapper \
+    ${GOPATH}/src/github.com/kubeflow/kubeflow/bootstrap/cmd/bootstrap/main.go
 
 FROM golang:${GOLANG_VERSION} AS build
 
@@ -34,12 +39,12 @@ RUN  curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.10.0/
 ARG registries
 COPY $registries /opt/registries
 
-# bootstrap is using ksonnet 0.11.0
-RUN wget -q https://github.com/ksonnet/ksonnet/releases/download/v0.11.0/ks_0.11.0_linux_amd64.tar.gz && \
-    tar xzf ks_0.11.0_linux_amd64.tar.gz -C . && \
-    rm ks_0.11.0_linux_amd64.tar.gz && \
-    cp ks_0.11.0_linux_amd64/ks /usr/local/bin && \
-    rm -rf ks_0.11.0_linux_amd64
+# bootstrap is using ksonnet 0.12.0
+RUN wget -q https://github.com/ksonnet/ksonnet/releases/download/v0.12.0/ks_0.12.0_linux_amd64.tar.gz && \
+    tar xzf ks_0.12.0_linux_amd64.tar.gz -C . && \
+    rm ks_0.12.0_linux_amd64.tar.gz && \
+    cp ks_0.12.0_linux_amd64/ks /usr/local/bin && \
+    rm -rf ks_0.12.0_linux_amd64
 
 COPY --from=build_base_remote /opt/kubeflow/bootstrapper /opt/kubeflow/
 COPY start.sh /opt/kubeflow/
@@ -47,6 +52,7 @@ COPY dlv.sh /opt/kubeflow/
 COPY config/default.yaml /opt/kubeflow/
 COPY image_registries.yaml /opt/kubeflow/
 RUN mkdir -p /opt/bootstrap
+RUN mkdir -p /opt/versioned_registries
 
 RUN chmod a+rx /opt/kubeflow/bootstrapper
 RUN chmod a+rx /opt/kubeflow/start.sh

@@ -41,7 +41,7 @@ local ROLE_WORKER = "worker";
       subdomain: service.name(params),
       restartPolicy: "Never",
       terminationGracePeriodSeconds: 30,
-      dnsPolicy: "ClusterFirst",
+      dnsPolicy: "ClusterFirstWithHostNet",
       schedulerName: params.schedulerName,
       volumes: $.volumes(params),
       containers: $.containers(params, role, podName),
@@ -49,6 +49,7 @@ local ROLE_WORKER = "worker";
       serviceAccountName: serviceaccount.name(params),
       nodeSelector: $.nodeSelector(params, role),
       securityContext: $.securityContext(params),
+      hostNetwork: role == ROLE_WORKER && util.toBool(params.useHostNetwork),
     },
   },
 
@@ -94,7 +95,7 @@ local ROLE_WORKER = "worker";
         defaultMode: 420,  // 0644
       },
     },
-  ],
+  ] + params.volumes,
 
   containers(params, role, podName):: {
     local job = {
@@ -132,7 +133,7 @@ local ROLE_WORKER = "worker";
           name: "openmpi-secrets",
           mountPath: "/kubeflow/openmpi/secrets",
         },
-      ],
+      ] + params.volumeMounts,
     },
     local controller = {
       name: "openmpi-controller",
@@ -148,7 +149,7 @@ local ROLE_WORKER = "worker";
           name: "openmpi-data",
           mountPath: "/kubeflow/openmpi/data",
         },
-      ],
+      ] + params.volumeMounts,
     },
 
     result:: if role == ROLE_MASTER then [job] else [job, controller],

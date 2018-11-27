@@ -1,36 +1,45 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Util functions to be used by scripts in this directory
 
-function usage() {
-    echo "usage: kfctl <command> <what>"
-    echo "where command is one of"
-    echo "init - initialize something"
-    echo "apply  -- apply some config"
-    echo "delete - delete some components"
-    echo
-    echo "what is one of"    
-    echo "project - the GCP project"
-    echo "platform - platform resources (e.g. GCP, minikube); basically non K8s resources"
-    echo "k8s - kubernetes resources"    
-    echo "help - print this message"       
+usage() {
+  echo "usage: kfctl <command> <what>"
+  echo "where command is one of"
+  echo "init - initialize something"
+  echo "apply  -- apply some config"
+  echo "delete - delete some components"
+  echo
+  echo "what is one of"
+  echo "project - the GCP project"
+  echo "platform - platform resources (e.g. GCP, minikube); basically non K8s resources"
+  echo "k8s - kubernetes resources"
+  echo "help - print this message"
 }
 
-
-function check_install() {
+check_install() {
   if ! which "${1}" &>/dev/null; then
     echo "You don't have ${1} installed. Please install ${1}."
     exit 1
   fi
 }
 
-function check_variable() {
+checkInstallPy() {
+  local PYPI=$1
+  local MOD=$2
+  if python -c "import pkgutil; exit(pkgutil.find_loader('${MOD}'))" &>/dev/null; then
+    echo "Failed to import python module ${MOD}."
+    echo "You don't have ${PYPI} installed. Please install ${PYPI}."
+    exit 1
+  fi
+}
+
+check_variable() {
   if [[ -z "${1}" ]]; then
     echo "'${2}' environment variable is not set. Please set it using export ${2}=value."
     exit 1
   fi
 }
 
-function createKsApp() {
+createKsApp() {
   # Create the ksonnet application.
   # All deployments should call this function to create a common ksonnet app.
   # They can then customize it as necessary.
@@ -49,29 +58,40 @@ function createKsApp() {
 
   # Install all required packages
   ks pkg install kubeflow/argo
+  ks pkg install kubeflow/pipeline
   ks pkg install kubeflow/core
   ks pkg install kubeflow/examples
+  ks pkg install kubeflow/jupyter
   ks pkg install kubeflow/katib
   ks pkg install kubeflow/mpi-job
   ks pkg install kubeflow/pytorch-job
   ks pkg install kubeflow/seldon
   ks pkg install kubeflow/tf-serving
+  ks pkg install kubeflow/tf-training
+  ks pkg install kubeflow/metacontroller
+  ks pkg install kubeflow/profiles
+  ks pkg install kubeflow/application
 
   # Generate all required components
   ks generate pytorch-operator pytorch-operator
-  # TODO(jlewi): Why are we overloading the ambassador images here?
   ks generate ambassador ambassador
-  ks generate jupyterhub jupyterhub
+  ks generate jupyter jupyter
   ks generate centraldashboard centraldashboard
   ks generate tf-job-operator tf-job-operator
-
+  ks generate metacontroller metacontroller
+  ks generate profiles profiles
+  ks generate notebooks notebooks 
   ks generate argo argo
+  ks generate pipeline pipeline
 
+  ks generate katib katib
   # Enable collection of anonymous usage metrics
   # To disable metrics collection. Remove the spartakus component.
   # cd ks_app
   # ks component rm spartakus
-  ks generate spartakus spartakus --usageId=$(uuidgen) --reportUsage=true
+  # Generate a random 30 bit number
+  local usageId=$(((RANDOM << 15) | RANDOM))
+  ks generate spartakus spartakus --usageId=${usageId} --reportUsage=true
   echo ""
   echo "****************************************************************"
   echo "Notice anonymous usage reporting enabled using spartakus"
@@ -84,15 +104,31 @@ function createKsApp() {
   echo "Then run the following command to remove it from your ksonnet app"
   echo "  ks component rm spartakus"
   echo ""
-  echo "For more info: https://www.kubeflow.org/docs/guides/usage-reporting/"  
+  echo "For more info: https://www.kubeflow.org/docs/guides/usage-reporting/"
   echo "****************************************************************"
   echo ""
+  ks generate application application
 }
 
-function customizeKsAppWithDockerImage() {
-   # customize docker registry
-   if [[ ! -z "$KUBEFLOW_DOCKER_REGISTRY" ]]; then
-      find ${KUBEFLOW_KS_DIR} -name "*.libsonnet" -o -name "*.jsonnet" | xargs sed -i -e "s%gcr.io%$KUBEFLOW_DOCKER_REGISTRY%g"
-      find ${KUBEFLOW_KS_DIR} -name "*.libsonnet" -o -name "*.jsonnet" | xargs sed -i -e "s%quay.io%$KUBEFLOW_DOCKER_REGISTRY%g"
-   fi
+removeKsEnv() {
+  pushd ${KUBEFLOW_KS_DIR}
+  set +e
+  O=$(ks env describe default 2>&1)
+  RESULT=$?
+  set -e
+  if [ "${RESULT}" -eq 0 ]; then
+    # Remove the default environment for the deleted cluster
+    ks env rm default
+  else
+    echo environment default is already removed
+  fi
+  popd
+}
+
+customizeKsAppWithDockerImage() {
+  # customize docker registry
+  if [[ ! -z "$KUBEFLOW_DOCKER_REGISTRY" ]]; then
+    find ${KUBEFLOW_KS_DIR} -name "*.libsonnet" -o -name "*.jsonnet" | xargs sed -i -e "s%gcr.io%$KUBEFLOW_DOCKER_REGISTRY%g"
+    find ${KUBEFLOW_KS_DIR} -name "*.libsonnet" -o -name "*.jsonnet" | xargs sed -i -e "s%quay.io%$KUBEFLOW_DOCKER_REGISTRY%g"
+  fi
 }

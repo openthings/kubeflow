@@ -66,31 +66,23 @@ type KsParameter struct {
 	Value     string
 }
 
-// RegistryConfig is used to configure registries that should
-// be baked into the bootstrapper docker image.
-// See: https://github.com/kubeflow/kubeflow/blob/master/bootstrap/image_registries.yaml
+// RegistryConfig is used for two purposes:
+// 1. used during image build, to configure registries that should be baked into the bootstrapper docker image.
+//  (See: https://github.com/kubeflow/kubeflow/blob/master/bootstrap/image_registries.yaml)
+// 2. used during app create rpc call, specifies a registry to be added to an app.
+//	required info for registry: Name, Repo, Version, Path
+//  Additionally if any of required fields is blank we will try to map with one of
+//  the registries baked into the Docker image using the name.
 type RegistryConfig struct {
-	Name   string
-	Repo   string
-	Branch string
-	Path   string
-	RegUri string
-}
-
-// KsAppRegistry specifies a registry to add to an app.
-// RegistryConfig on the other hand describe a bunch of registries
-// that are baked into the docker image. These registries can then
-// be added to the app using file:// as the URI.
-// KsAppRegistry can use any URI that ksonnet understands.
-// Additionally if the RegUri is blank we will try to map it to one of
-// the registries baked into the Docker image using the name.
-type KsAppRegistry struct {
-	Name   string
-	RegUri string
+	Name    string
+	Repo    string
+	Version string
+	Path    string
+	RegUri  string
 }
 
 type AppConfig struct {
-	Registries []KsAppRegistry
+	Registries []RegistryConfig
 	Packages   []KsPackage
 	Components []KsComponent
 	Parameters []KsParameter
@@ -277,7 +269,7 @@ func processFile(opt *options.ServerOption, ksServer *ksServer) error {
 		Namespace:     opt.NameSpace,
 		AutoConfigure: true,
 	}
-	if err := ksServer.CreateApp(ctx, request); err != nil {
+	if err := ksServer.CreateApp(ctx, request, nil); err != nil {
 		return err
 	}
 
@@ -319,7 +311,7 @@ func Run(opt *options.ServerOption) error {
 		log.Info("--registries-config-file not provided; not loading any registries")
 	}
 
-	ksServer, err := NewServer(opt.AppDir, regConfig.Registries)
+	ksServer, err := NewServer(opt.AppDir, regConfig.Registries, opt.GkeVersionOverride)
 
 	if err != nil {
 		return err

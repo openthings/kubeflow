@@ -29,7 +29,9 @@ import datetime
 import json
 import logging
 import os
+import re
 import shutil
+import subprocess
 import tempfile
 import time
 import uuid
@@ -162,22 +164,26 @@ def deploy_model(args):
   api_client = create_k8s_client(args)
   app_dir = setup_kubeflow_ks_app(args, api_client)
 
-  component = "modelServer"
   logging.info("Deploying tf-serving.")
-  generate_command = ["ks", "generate", "tf-serving", component]
-
-  util.run(generate_command, cwd=app_dir)
-
   params = {}
   for pair in args.params.split(","):
     k, v = pair.split("=", 1)
     params[k] = v
-
   if "namespace" not in params:
     raise ValueError("namespace must be supplied via --params.")
   namespace = params["namespace"]
 
-  ks_deploy(app_dir, component, params, env=None, account=None)
+  # deployment component
+  deployComponent = "modelServer"
+  generate_command = ["ks", "generate", "tf-serving-deployment-gcp", deployComponent]
+  util.run(generate_command, cwd=app_dir)
+  ks_deploy(app_dir, deployComponent, params, env=None, account=None)
+
+  # service component
+  serviceComponent = "modelServer-service"
+  generate_command = ["ks", "generate", "tf-serving-service", serviceComponent]
+  util.run(generate_command, cwd=app_dir)
+  ks_deploy(app_dir, serviceComponent, params, env=None, account=None)
 
   core_api = k8s_client.CoreV1Api(api_client)
   deploy = core_api.read_namespaced_service(args.deploy_name, args.namespace)
@@ -186,8 +192,51 @@ def deploy_model(args):
   if not cluster_ip:
     raise ValueError("inception service wasn't assigned a cluster ip.")
   util.wait_for_deployment(
-    api_client, namespace, args.deploy_name + "-v1", timeout_minutes=10)
+    api_client, namespace, args.deploy_name, timeout_minutes=10)
   logging.info("Verified TF serving started.")
+
+def test_successful_deployment(deployment_name):
+  """ Tests if deployment_name is successfully running using kubectl """
+  # TODO use the python kubernetes library to get deployment status
+  # This is using kubectl right now
+  retries = 20
+  i = 0
+  while True:
+    if i == retries:
+      raise Exception('Deployment failed: ' + deployment_name)
+    try:
+      output = util.run(["kubectl", "get", "deployment", deployment_name])
+      logging.info("output = \n" + output)
+      if output.count('\n') == 1:
+        output = output.split('\n')[1]
+        output = re.split(' +', output)
+        desired_pods = output[1]
+        current_pods = output[2]
+        uptodate_pods = output[3]
+        available_pods = output[4]
+        logging.info("desired_pods " + desired_pods)
+        logging.info("current_pods " + current_pods)
+        logging.info("uptodate_pods " + uptodate_pods)
+        logging.info("available_pods " + available_pods)
+        if desired_pods == current_pods and \
+           desired_pods == uptodate_pods and \
+           desired_pods == available_pods:
+          return True
+    except subprocess.CalledProcessError as e:
+      logging.error(e)
+    logging.info("Sleeping 5 seconds and retrying..")
+    time.sleep(5)
+    i += 1
+
+
+def test_katib(args):
+  test_successful_deployment('vizier-core')
+  test_successful_deployment('vizier-core-rest')
+  test_successful_deployment('katib-ui')
+  test_successful_deployment('vizier-db')
+  test_successful_deployment('vizier-suggestion-grid')
+  test_successful_deployment('vizier-suggestion-random')
+  test_successful_deployment('studyjob-controller')
 
 def deploy_argo(args):
   api_client = create_k8s_client(args)
@@ -195,8 +244,7 @@ def deploy_argo(args):
 
   component = "argo"
   logging.info("Deploying argo")
-  generate_command = ["ks", "generate", "argo", component,
-                        "--namespace", "default", "--name", "argo"]
+  generate_command = ["ks", "generate", "argo", component, "--name", "argo"]
   util.run(generate_command, cwd=app_dir)
 
   ks_deploy(app_dir, component, {}, env=None, account=None)
@@ -204,7 +252,7 @@ def deploy_argo(args):
   # Create a hello world workflow
   util.run(["kubectl", "create", "-n", "default", "-f", "https://raw.githubusercontent.com/argoproj/argo/master/examples/hello-world.yaml"], cwd=app_dir)
 
-  # Wait for 100 seconds to check if the hello-world pod was created
+  # Wait for 200 seconds to check if the hello-world pod was created
   retries = 20
   i = 0
   while True:
@@ -213,7 +261,7 @@ def deploy_argo(args):
     output = util.run(["kubectl", "get", "pods", "-n", "default", "-lworkflows.argoproj.io/workflow"])
     if "hello-world-" in output:
       return True
-    time.sleep(5)
+    time.sleep(10)
     i += 1
 
 def deploy_pytorchjob(args):
@@ -600,6 +648,11 @@ def main():  # pylint: disable=too-many-locals,too-many-statements
     "deploy_argo", help="Deploy argo")
 
   parser_argo_job.set_defaults(func=deploy_argo)
+
+  parser_katib_test = subparsers.add_parser(
+    "test_katib", help="Test Katib")
+
+  parser_katib_test.set_defaults(func=test_katib)
 
   parser_minikube = subparsers.add_parser(
     "deploy_minikube", help="Setup a K8s cluster on minikube.")

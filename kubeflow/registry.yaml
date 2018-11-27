@@ -1,9 +1,27 @@
 apiVersion: '0.1'
 kind: ksonnet.io/registry
 libraries:
+  application:
+    version: master
+    path: application
+  notebooks:
+    version: master
+    path: notebooks
+  metacontroller:
+    version: master
+    path: metacontroller
+  profiles:
+    version: master
+    path: profiles
   core:
     version: master
     path: core
+  jupyter:
+    version: master
+    path: jupyter
+  tf-training:
+    version: master
+    path: tf-training
   tf-serving:
     version: master
     path: tf-serving
@@ -13,6 +31,9 @@ libraries:
   pachyderm:
     version: master
     path: pachyderm
+  pipeline:
+    version: master
+    path: pipeline
   pytorch-job:
     version: master
     path: pytorch-job
@@ -34,3 +55,15 @@ libraries:
   seldon:
     version: master
     path: seldon
+  mxnet-job:
+    version: master
+    path: mxnet-job
+  nvidia-inference-server:
+    version: master
+    path: nvidia-inference-server
+  chainer-job:
+    version: master
+    path: chainer-job
+  kubebench:
+    version: master
+    path: kubebench

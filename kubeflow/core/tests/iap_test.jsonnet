@@ -1,6 +1,10 @@
 local iap = import "../iap.libsonnet";
 
-std.assertEqual(iap.parts("namespace").service, {
+std.assertEqual(iap.new(
+  { namespace: "namespace" },
+  { envoyPort: 8080 }
+).service, {
+
   apiVersion: "v1",
   kind: "Service",
   metadata: {
@@ -28,7 +32,15 @@ std.assertEqual(iap.parts("namespace").service, {
   },
 }) &&
 
-std.assertEqual(iap.parts("namespace").ingress("ipName", "hostname"), {
+std.assertEqual(iap.new(
+  { namespace: "namespace" },
+  {
+    envoyPort: 8080,
+    ipName: "ipName",
+    hostname: "hostname",
+    issuer: "issuer",
+  }
+).ingress, {
   apiVersion: "extensions/v1beta1",
   kind: "Ingress",
   metadata: {
@@ -38,6 +50,7 @@ std.assertEqual(iap.parts("namespace").ingress("ipName", "hostname"), {
       "kubernetes.io/tls-acme": "true",
       "ingress.kubernetes.io/ssl-redirect": "true",
       "kubernetes.io/ingress.global-static-ip-name": "ipName",
+      "certmanager.k8s.io/issuer": "issuer",
     },
   },
   spec: {
@@ -60,7 +73,17 @@ std.assertEqual(iap.parts("namespace").ingress("ipName", "hostname"), {
   },
 }) &&
 
-std.assertEqual(iap.parts("namespace").ingress("ipName", "null"), {
+std.assertEqual(iap.new(
+  {
+    namespace: "namespace",
+  },
+  {
+    envoyPort: 8080,
+    ipName: "ipName",
+    hostname: "null",
+    issuer: "issuer",
+  }
+).ingress, {
   apiVersion: "extensions/v1beta1",
   kind: "Ingress",
   metadata: {
@@ -70,6 +93,7 @@ std.assertEqual(iap.parts("namespace").ingress("ipName", "null"), {
       "kubernetes.io/tls-acme": "true",
       "ingress.kubernetes.io/ssl-redirect": "true",
       "kubernetes.io/ingress.global-static-ip-name": "ipName",
+      "certmanager.k8s.io/issuer": "issuer",
     },
   },
   spec: {
@@ -91,7 +115,17 @@ std.assertEqual(iap.parts("namespace").ingress("ipName", "null"), {
   },
 }) &&
 
-std.assertEqual(iap.parts("namespace").certificate("secretName", "hostname", "issuer"), {
+std.assertEqual(iap.new(
+  {
+    namespace: "namespace",
+  },
+  {
+    secretName: "secretName",
+    hostname: "hostname",
+    issuer: "issuer",
+    privateGKECluster: "false",
+  }
+).certificate, {
   apiVersion: "certmanager.k8s.io/v1alpha1",
   kind: "Certificate",
   metadata: {
@@ -123,7 +157,13 @@ std.assertEqual(iap.parts("namespace").certificate("secretName", "hostname", "is
   },
 }) &&
 
-std.assertEqual(iap.parts("namespace").whoamiApp, {
+std.assertEqual(iap.new(
+  {
+    namespace: "namespace",
+  },
+  {
+  }
+).whoamiApp, {
   apiVersion: "extensions/v1beta1",
   kind: "Deployment",
   metadata: {
@@ -172,7 +212,13 @@ std.assertEqual(iap.parts("namespace").whoamiApp, {
   },
 }) &&
 
-std.assertEqual(iap.parts("namespace").whoamiService, {
+std.assertEqual(iap.new(
+  {
+    namespace: "namespace",
+  },
+  {
+  }
+).whoamiService, {
   apiVersion: "v1",
   kind: "Service",
   metadata: {

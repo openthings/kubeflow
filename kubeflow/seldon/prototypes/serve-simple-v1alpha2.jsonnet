@@ -7,6 +7,7 @@
 // @optionalParam replicas number 1 Number of replicas
 // @optionalParam endpoint string REST The endpoint type: REST or GRPC
 // @optionalParam pvcName string null Name of PVC
+// @optionalParam imagePullSecret string null name of image pull secret
 
 local k = import "k.libsonnet";
 
@@ -65,6 +66,11 @@ local seldonDeployment = {
               },
             ],
             terminationGracePeriodSeconds: 1,
+            imagePullSecrets+: if params.imagePullSecret != "null" && params.imagePullSecret != "" then [
+              {
+                name: params.imagePullSecret,
+              },
+            ] else [],
             volumes+: if params.pvcName != "null" && params.pvcName != "" then [
               {
                 name: "persistent-storage",
@@ -94,7 +100,4 @@ local seldonDeployment = {
   },
 };
 
-k.core.v1.list.new([
-  pvcClaim,
-  seldonDeployment,
-])
+if params.pvcName == "null" then k.core.v1.list.new([seldonDeployment]) else k.core.v1.list.new([pvcClaim, seldonDeployment])

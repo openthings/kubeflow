@@ -18,8 +18,6 @@ import { flattenDeploymentOperationError, log, wait } from './Utils';
 // So for security reasons it might be better to just bundle the configs.
 // When we build a docker image as part of our release process we can just
 // copy in the latest configs.
-import clusterSpecPath from './configs/cluster-kubeflow.yaml';
-import clusterJinjaPath from './configs/cluster.jinja';
 import appConfigPath from './user_config/app-config.yaml';
 
 // TODO(jlewi): For the FQDN we should have a drop down box to select custom
@@ -31,13 +29,13 @@ interface DeployFormState {
   deploymentName: string;
   dialogTitle: string;
   dialogBody: string;
-  hostName: string;
-  ipName: string;
   project: string;
   showLogs: boolean;
   zone: string;
+  kfverison: string;
   clientId: string;
   clientSecret: string;
+  iap: boolean;
 }
 
 const Text = glamorous.div({
@@ -55,6 +53,13 @@ const logsContainerStyle = (show: boolean) => {
     position: 'fixed',
     right: 0,
     transition: 'height 0.3s',
+  } as React.CSSProperties;
+};
+
+const IapElementStyle = (show: boolean) => {
+  return {
+    display: show ? 'inline' : 'none',
+    minHeight: 0,
   } as React.CSSProperties;
 };
 
@@ -103,8 +108,6 @@ const YamlBtn = glamorous(Button)({
 
 export default class DeployForm extends React.Component<any, DeployFormState> {
 
-  private _clusterJinja = '';
-  private _clusterSpec: any;
   private _configSpec: any;
 
   constructor(props: any) {
@@ -115,11 +118,11 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       deploymentName: 'kubeflow',
       dialogBody: '',
       dialogTitle: '',
-      hostName: '<HOST>.endpoints.<PROJECT>.cloud.goog',
-      ipName: 'kubeflow',
-      project: 'cloud-ml-dev',
+      iap: true,
+      kfverison: 'v0.3.2',
+      project: '',
       showLogs: false,
-      zone: 'us-east1-d',
+      zone: 'us-central1-a',
     };
   }
 
@@ -129,36 +132,6 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
     // be able to click submit until the fetches have succeeded. How can we do
     // that?
 
-    this._appendLine('loadClusterJinjaPath');
-    // Load the jinja template into a string because 
-    // we will need it for the deployments insert request.
-    fetch(clusterJinjaPath, { mode: 'no-cors' })
-      .then((response) => {
-        log('Got response');
-        return response.text();
-      })
-      .then((text) => {
-        this._clusterJinja = text;
-        log('Loaded clusterJinja successfully');
-      })
-      .catch((error) => {
-        log('Request failed', error);
-      });
-
-    this._appendLine('loadClusterSpec');
-    // Load the YAML for the actual config and parse it.
-    fetch(clusterSpecPath, { mode: 'no-cors' })
-      .then((response) => {
-        log('Got response');
-        return response.text();
-      })
-      .then((text) => {
-        this._clusterSpec = jsYaml.safeLoad(text);
-        // log('Loaded clusterSpecPath successfully');
-      })
-      .catch((error) => {
-        log('Request failed', error);
-      });
     fetch(appConfigPath, { mode: 'no-cors' })
       .then((response) => {
         log('Got response');
@@ -190,25 +163,47 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
         <Row>
           <Input name="deploymentName" label="Deployment name" spellCheck={false} value={this.state.deploymentName} onChange={this._handleChange.bind(this)} />
         </Row>
-        <Row>
-          <Input name="zone" label="Zone" spellCheck={false} value={this.state.zone} onChange={this._handleChange.bind(this)} />
+        <Row style={{ minHeight: 20}}>
+          <input style={{ fontSize: '1.1em', margin: '0% 1% 0% 11%' }} type="checkbox" onChange={this._handleCheck.bind(this)} />
+          <label style={{ minHeight: 20 }} >Skip IAP</label>
         </Row>
-        <Row>
-          <Input name="ipName" label="IP name" spellCheck={false} value={this.state.ipName} onChange={this._handleChange.bind(this)} />
+        <Row style={{ minHeight: 0 }}>
+          <Input style={IapElementStyle(this.state.iap)} name="clientId" label="IAP Oauth Client ID" spellCheck={false} value={this.state.clientId} onChange={this._handleChange.bind(this)} />
         </Row>
-        <Row>
-          <Input name="hostName" label="Hostname" spellCheck={false} value={this.state.hostName} onChange={this._handleChange.bind(this)} />
+        <Row style={{ minHeight: 0 }}>
+          <Input style={IapElementStyle(this.state.iap)} name="clientSecret" label="IAP Oauth Client Secret" spellCheck={false} value={this.state.clientSecret} onChange={this._handleChange.bind(this)} />
         </Row>
-        <Row>
-          <Input name="clientId" label="Web App Client Id" spellCheck={false} value={this.state.clientId} onChange={this._handleChange.bind(this)} />
+        <Row style={{ minHeight: 20}}>
+          <Text style={{ fontSize: '1.1em', margin: '2% 11%' }}>GKE Zone: </Text>
+          <select name="zone" style={{ display: 'flex', fontSize: '1.1em', margin: '2% 10.5%',}} spellCheck={false} value={this.state.zone} onChange={this._handleChange.bind(this)} >
+            <option value="us-central1-a">us-central1-a</option>
+            <option value="us-central1-c">us-central1-c</option>
+            <option value="us-east1-c">us-east1-c</option>
+            <option value="us-east1-d">us-east1-d</option>
+            <option value="us-west1-b">us-west1-b</option>
+            <option value="europe-west1-b">europe-west1-b</option>
+            <option value="europe-west1-d">europe-west1-d</option>
+            <option value="asia-east1-a">asia-east1-a</option>
+            <option value="asia-east1-b">asia-east1-b</option>
+          </select>
         </Row>
-        <Row>
-          <Input name="clientSecret" label="Web App Client Secret" spellCheck={false} value={this.state.clientSecret} onChange={this._handleChange.bind(this)} />
+        <Row style={{ minHeight: 20}}>
+          <Text style={{ fontSize: '1.1em', margin: '2% 11%' }}>Kubeflow Version:</Text>
+          <select name="kfverison" style={{ display: 'flex', fontSize: '1.1em', margin: '2% 1%',}} spellCheck={false} value={this.state.kfverison} onChange={this._handleChange.bind(this)} >
+            <option value="v0.3.2">v0.3.2</option>
+          </select>
         </Row>
-
         <div style={{ display: 'flex', padding: '20px 60px 40px' }}>
           <DeployBtn variant="contained" color="primary" onClick={this._createDeployment.bind(this)}>
             Create Deployment
+          </DeployBtn>
+
+          <DeployBtn style={IapElementStyle(this.state.iap)} variant="contained" color="default" onClick={this._iapAddress.bind(this)}>
+            IAP Access
+          </DeployBtn>
+
+          <DeployBtn style={IapElementStyle(!this.state.iap)} variant="contained" color="default" onClick={this._cloudShell.bind(this)}>
+            Cloud Shell
           </DeployBtn>
 
           <YamlBtn variant="outlined" color="default" onClick={this._showYaml.bind(this)}>
@@ -273,64 +268,96 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       return;
     }
 
-    const kubeflow = this._clusterSpec.resources[0];
+    const state = this.state;
+    const email = await Gapi.getSignedInEmail();
+    let iapIdx = 0;
+    for (let i = 0, len = this._configSpec.defaultApp.parameters.length; i < len; i ++){
+      const p = this._configSpec.defaultApp.parameters[i];
+      if (p.name === 'ipName') {
+        p.value = this.state.deploymentName + '-ip';
+      }
 
-    kubeflow.name = this.state.deploymentName;
-    kubeflow.properties.zone = this.state.zone;
-    kubeflow.properties.clientId = btoa(this.state.clientId);
-    kubeflow.properties.clientSecret = btoa(this.state.clientSecret);
+      if (p.name === 'hostname') {
+        p.value = state.deploymentName + '.endpoints.' + state.project + '.cloud.goog';
+      }
 
-    const config: any = jsYaml.safeLoad(kubeflow.properties.bootstrapperConfig);
+      if (p.name === 'acmeEmail') {
+        p.value = email;
+      }
 
-    if (config == null) {
+      if (p.name === 'jupyterHubAuthenticator') {
+        iapIdx = i;
+      }
+    }
+    if (this.state.clientId === '' || this.state.clientSecret === '') {
+      this._configSpec.defaultApp.parameters.splice(iapIdx, 1);
+    }
+    this._configSpec.defaultApp.registries[0].version = this.state.kfverison;
+
+    return this._configSpec;
+  }
+
+  private async _cloudShell() {
+    const key = 'project';
+    if (this.state[key] === '') {
       this.setState({
-        dialogBody: 'Property bootstrapperConfig not found in deployment config.',
-        dialogTitle: 'Deployment Error',
+        dialogBody: 'project id is missing',
+        dialogTitle: 'Missing field',
       });
       return;
     }
-
-    const state = this.state;
-    config.app.parameters.forEach((p: any) => {
-      if (p.name === 'ipName') {
-        p.value = state.ipName;
-      }
-
-      if (p.hostname === 'hostname') {
-        p.value = state.hostName;
-      }
-    });
-
-    this._clusterSpec.resources[0] = kubeflow;
-    const clusterSpec = jsYaml.dump(this._clusterSpec);
-
-    return {
-      'name': this.state.deploymentName,
-      'target': {
-        'config': {
-          'content': clusterSpec,
-        },
-        'imports': [
-          {
-            'content': this._clusterJinja,
-            'name': 'cluster.jinja',
-          }
-        ],
-      },
-    };
-
+    const cloudShellConfPath = this.state.kfverison + '/' + this.state.deploymentName + '/kf_util';
+    const cloudShellUrl = 'https://cloud.google.com/console/cloudshell/open?shellonly=true&git_repo=https://source.developers.google.com/p/' +
+      this.state.project + '/r/' + this.state.project + '-kubeflow-config&working_dir=' + cloudShellConfPath + '&tutorial=conn.md';
+    window.open(cloudShellUrl, '_blank');
   }
 
-  // Create a  Kubeflow deployment.
-  private async _createDeployment() {
-    for (const prop of ['project', 'zone', 'ipName', 'deploymentName', 'hostName']) {
+  private async _iapAddress() {
+    for (const prop of ['project', 'deploymentName']) {
       if (this.state[prop] === '') {
         this.setState({
-          dialogBody: 'All fields are required, but it looks like you missed something.',
+          dialogBody: 'Some required fields (project, deploymentName) are missing',
           dialogTitle: 'Missing field',
         });
         return;
       }
+    }
+    this.setState({
+      showLogs: true,
+    });
+    const dashboardUri = 'https://' + this.state.deploymentName + '.endpoints.' + this.state.project + '.cloud.goog/';
+    this._redirectToKFDashboard(dashboardUri);
+  }
+
+  // Create a  Kubeflow deployment.
+  private async _createDeployment() {
+    for (const prop of ['project', 'zone', 'deploymentName']) {
+      if (this.state[prop] === '') {
+        this.setState({
+          dialogBody: 'Some required fields (project, zone, deploymentName) are missing',
+          dialogTitle: 'Missing field',
+        });
+        return;
+      }
+    }
+    if (this.state.iap) {
+      for (const prop of ['clientId', 'clientSecret']) {
+        if (this.state[prop] === '') {
+          this.setState({
+            dialogBody: 'Some required fields (IAP Oauth Client ID, IAP Oauth Client Secret) are missing',
+            dialogTitle: 'Missing field',
+          });
+          return;
+        }
+      }
+    }
+    const deploymentNameKey = 'deploymentName';
+    if (this.state[deploymentNameKey].length < 4 || this.state[deploymentNameKey].length > 20) {
+      this.setState({
+        dialogBody: 'Deployment name length need to between 4 and 20',
+        dialogTitle: 'Invalid field',
+      });
+      return;
     }
 
     this.setState({
@@ -344,15 +371,29 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
     // enabling, make requests to enable them, then we repeat this in a loop
     // until we have no more services left, or we try too many times.
     this._appendLine(`Getting enabled services for project ${project}..`);
+    await request(
+      {
+        headers: { 'content-type': 'application/json' },
+        method: 'GET',
+        uri: this._configSpec.appAddress,
+      },
+      (error, response, body) => {
+        if (error) {
+          this._appendLine('Could not reach backend server, exiting');
+          return;
+        }
+      }
+    );
 
     let servicesToEnable: string[] = [];
     let enableAttempts = 0;
-    const retryTimeout = 3000;
+    const retryTimeout = 5000;
+    const email = await Gapi.getSignedInEmail();
     do {
       servicesToEnable = await this._getServicesToEnable(project)
         .catch(e => {
           this.setState({
-            dialogBody: 'Error trying to list enabled services: ' + e,
+            dialogBody: `${email}: Error trying to list enabled services: ` + e,
             dialogTitle: 'Deployment Error',
           });
           return [];
@@ -376,7 +417,7 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
         this._appendLine('Enabling ' + s);
         await Gapi.servicemanagement.enable(project, s)
           .catch(e => this.setState({
-            dialogBody: 'Error trying to enable this required service: ' + s + '.\n' + e,
+            dialogBody: `${email}: Error trying to enable this required service: ` + s + '.\n' + e,
             dialogTitle: 'Deployment Error',
           }));
       }
@@ -386,9 +427,9 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       }
 
       enableAttempts++;
-    } while (servicesToEnable.length && enableAttempts < 5);
+    } while (servicesToEnable.length && enableAttempts < 50);
 
-    if (servicesToEnable.length && enableAttempts >= 5) {
+    if (servicesToEnable.length && enableAttempts >= 50) {
       this.setState({
         dialogBody: 'Tried too many times to enable these services: ' +
           servicesToEnable.join(', '),
@@ -397,7 +438,6 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       return;
     }
 
-    // Step 2: Set IAM Adming Policy
     const projectNumber = await Gapi.cloudresourcemanager.getProjectNumber(project)
       .catch(e => {
         this.setState({
@@ -412,70 +452,56 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
     }
 
     this._appendLine('Proceeding with project number: ' + projectNumber);
+    const token = await Gapi.getToken();
 
-    // Step 3: Create GCP Deployment
+    const deploymentName = this.state.deploymentName;
 
     const resource = await this._getYaml();
     if (!resource) {
       return;
     }
 
-    this._appendLine('Starting new deployment..');
-
-    const deploymentName = this.state.deploymentName;
-    await Gapi.deploymentmanager.insert(project, resource)
-      .then(res => {
-        this._appendLine('Result of create deployment operation:\n' + JSON.stringify(res));
-        this._monitorDeployment(project, deploymentName);
-      })
-      .catch(err => {
-        this._appendLine('Error trying to create deployment:\n' + err);
-        this.setState({
-          dialogBody: 'Error trying to create deployment: ' + err,
-          dialogTitle: 'Deployment Error',
-        });
-      });
-
-
-    // Step 4: In-cluster resources set up
-    let status = '';
-    let getAttempts = 0;
-    const getTimeout = 15000;
-    do {
-      getAttempts++;
-      const curStatus = await Gapi.deploymentmanager.get(this.state.project, deploymentName)
-            .catch(err => {
-              this._appendLine('Cluster endpoint not available yet.');
-            });
-      if (!curStatus) {
-        await wait(getTimeout);
-        continue;
-      }
-      status = curStatus.operation!.status!;
-    } while (status !== 'DONE' && getAttempts < 20);
-
-    const token = await Gapi.getToken();
-    await request(
+    const createBody = JSON.stringify(
       {
-        body: JSON.stringify(
-          {
-            namespace: 'kubeflow',
-            project,
-            secretKey: 'admin-gcp-sa.json',
-            secretName: 'admin-gcp-sa',
-            serviceAccount:  `${deploymentName}-admin@${project}.iam.gserviceaccount.com`,
-            token,
-          }
-        ),
+        AppConfig: this._configSpec.defaultApp,
+        Apply: true,
+        AutoConfigure: true,
+        ClientId: btoa(this.state.clientId),
+        ClientSecret: btoa(this.state.clientSecret),
+        Cluster: deploymentName,
+        Email: email,
+        IpName: this.state.deploymentName + '-ip',
+        Name: deploymentName,
+        Namespace: 'kubeflow',
+        Project: project,
+        ProjectNumber: projectNumber,
+        Token: token,
+        Zone: this.state.zone,
+      }
+    );
+    request(
+      {
+        body: createBody,
         headers: { 'content-type': 'application/json' },
         method: 'PUT',
-        uri: this._configSpec.appAddress + '/insertSaKey',
+        uri: this._configSpec.appAddress + '/kfctl/e2eDeploy',
       },
       (error, response, body) => {
         if (!error) {
-          this._appendLine('Service Account Key inserted.');
+          try {
+            const err = JSON.parse(response.body).err;
+            if (err) {
+              this._appendLine('Deploy failed with backend error: ' + err);
+            } else {
+              this._appendLine('Deploy acknowledged by backend');
+              this._monitorDeployment(project, deploymentName);
+            }
+          }
+          catch (e) {
+            this._appendLine('Backend returned non-json response: ' + body);
+          }
         } else {
-          this._appendLine('error: ' + response.statusCode);
+          this._appendLine('Error: ' + error);
         }
       }
     );
@@ -493,6 +519,7 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       'cloudresourcemanager.googleapis.com',
       'endpoints.googleapis.com',
       'iam.googleapis.com',
+      'sourcerepo.googleapis.com',
     ]);
 
     for (const k of Array.from(servicesToEnable.keys())) {
@@ -505,6 +532,7 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
   }
 
   private _monitorDeployment(project: string, deploymentName: string) {
+    const dashboardUri = 'https://' + this.state.deploymentName + '.endpoints.' + this.state.project + '.cloud.goog/';
     const monitorInterval = setInterval(() => {
       Gapi.deploymentmanager.get(this.state.project, deploymentName)
         .then(r => {
@@ -512,12 +540,58 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
             this._appendLine(
               'deployment failed with error:' + flattenDeploymentOperationError(r.operation!));
             clearInterval(monitorInterval);
+          } else if (r.operation!.status! && r.operation!.status === 'DONE') {
+            const readyTime = new Date();
+            readyTime.setTime(readyTime.getTime() + (20 * 60 * 1000));
+            this._appendLine('Deployment initialized, configuring environment');
+            if (this.state.clientId === '' || this.state.clientSecret === '') {
+              this._appendLine('(IAP skipped), cluster should be ready within 5 minutes. To connect to cluster, click cloud shell and follow instruction');
+            } else {
+              this._appendLine('your kubeflow app url should be ready within 20 minutes (by '
+                + readyTime.toLocaleTimeString() + '): https://'
+                + this.state.deploymentName + '.endpoints.' + this.state.project + '.cloud.goog');
+            }
+            clearInterval(monitorInterval);
+            this._redirectToKFDashboard(dashboardUri);
           } else {
             this._appendLine(`Status of ${deploymentName}: ` + r.operation!.status!);
           }
         })
         .catch(err => this._appendLine('deployment failed with error:' + err));
-    }, 3000);
+    }, 10000);
+  }
+
+  private _redirectToKFDashboard(dashboardUri: string) {
+    // relying on JupyterHub logo image to be available when the site is ready.
+    // The dashboard URI is hosted at a domain different from the deployer
+    // app. Fetching a GET on the dashboard is blocked by the browser due
+    // to CORS. Therefore we use an img element as a hack which fetches
+    // an image served by the target site, the img load is a simple html
+    // request and not an AJAX request, thus bypassing the CORS in this
+    // case.
+    this._appendLine('Validating if IAP is up and running...');
+    const imgUri = dashboardUri + 'hub/logo';
+    const startTime = new Date().getTime() / 1000;
+    const img = document.createElement('img');
+    img.src = imgUri + '?rand=' + Math.random();
+    img.id = 'ready_test';
+    img.onload = () => { window.location.href = dashboardUri; };
+    img.onerror = () => {
+      const timeSince = (new Date().getTime() / 1000) - startTime;
+      if (timeSince > 1500) {
+        this._appendLine('Could not redirect to Kubeflow Dashboard at: ' + dashboardUri);
+      } else {
+        const ready_test = document.getElementById('ready_test') as HTMLImageElement;
+        if (ready_test != null) {
+          setTimeout(() => {
+            ready_test.src = imgUri + '?rand=' + Math.random();
+            this._appendLine('Waiting for the IAP setup to get ready...');
+          }, 20000);
+        }
+      }
+    };
+    img.style.display = 'none';
+    document.body.appendChild(img);
   }
 
   private _handleChange(event: Event) {
@@ -526,6 +600,12 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
     this.setState({
       [target.name]: target.value
     } as any);
+  }
+
+  private _handleCheck(event: Event) {
+    this.setState({
+      ['iap']: !this.state.iap
+    });
   }
 
 }

@@ -105,17 +105,67 @@ class App extends React.Component<any, { signedIn: boolean }> {
                 </div>
                 <div style={styles.title}>Deploy on GCP</div>
                 <div>
-                  This deployer will guide you through the process of deploying
-                  Kubeflow on Google Cloud Platform. It also eliminates the
-                  need to install any tools on your machine.
+                  To deploy Kubeflow on Google Cloud Platform:
                 </div>
-                <br />
                 <div>
-                  Specify details such as project, zone, name to create a
-                  Kubeflow deployment. Learn more at
-                  <a style={{ color: 'inherit', marginLeft: 5 }}
-                    href="https://kubeflow.org">https://kubeflow.org</a>
+                  <ul>
+                    <li> Enter the Project ID of the GCP project you want to use  </li>
+                    <li> Pick a name for your deployment </li>
+                    <li> (Optional / Recommended) Follow these
+                         <a href="https://www.kubeflow.org/docs/started/getting-started-gke/#create-oauth-client-credentials"
+                            style={{ color: 'inherit', marginLeft: 5 }}
+                            target="_blank"
+                         >
+                         instructions</a> to create an OAuth client and
+                         then enter as IAP Oauth Client ID and Secret</li>
+                    <li> (Optional) Choose GKE zone where you want Kubeflow to be deployed </li>
+                    <li> (Optional) Choose Kubeflow version </li>
+                    <li> Click Create Deployment </li>
+                  </ul>
                 </div>
+                <div>
+                  To connect to deployed Kubeflow cluster:
+                </div>
+                <div>
+                  <ul>
+                    <li> If you configured IAP Oauth Client ID and Secret: </li>
+                  </ul>
+                  <ul>
+                    <ul>
+                      <li>  Click IAP Access (might need up to 20 minutes for domain and IAP to be setup) </li>
+                    </ul>
+                  </ul>
+                  <ul>
+                    <li> If you checked Skip IAP for your deployment: </li>
+                  </ul>
+                  <ul>
+                    <ul>
+                      <li>  Click Cloud Shell; follow instructions on right side of the new tab.
+                      </li>
+                    </ul>
+                  </ul>
+                </div>
+                <div>
+                  Notice:
+                  <ul>
+
+                     <li> When you click deploy a short lived OAuth token granting access to your GCP resources will be sent to the
+                          Kubeflow deploy service
+                     </li>
+                     <li> The Kubeflow deploy service uses this to create Kubeflow GCP resources on your behalf
+                     </li>
+                     <li> If you don't want to delegate a credential to the service please use our
+                          <a href="https://www.kubeflow.org/docs/started/getting-started-gke/"
+                             style={{ color: 'inherit', marginLeft: 5 }}
+                             target="_blank"
+                          >CLI to deploy Kubeflow</a>
+                     </li>
+                     <li> <a style={{ color: 'inherit', marginLeft: 5 }} href="https://policies.google.com/terms">Terms</a>
+                     </li>
+                     <li><a style={{ color: 'inherit', marginLeft: 5 }} href="https://policies.google.com/privacy">Privacy</a>
+                     </li>
+                  </ul>
+                </div>                
               </div>
               <div style={styles.rightPane}>
                 <Switch>

@@ -4,7 +4,6 @@
 // @shortDescription Ingress for IAP on GKE.
 // @param name string Name for the component
 // @param ipName string The name of the global ip address to use.
-// @optionalParam namespace string null Namespace to use for the components. It is automatically inherited from the environment if not set.
 // @optionalParam secretName string envoy-ingress-tls The name of the secret containing the SSL certificates.
 // @optionalParam hostname string null The hostname associated with this ingress. Eg: mykubeflow.example.com
 // @optionalParam issuer string letsencrypt-prod The cert-manager issuer name.
@@ -14,17 +13,6 @@
 // @optionalParam oauthSecretName string kubeflow-oauth The name of the secret containing the OAuth client_id and client_secret.
 // @optionalParam privateGKECluster string false Is the k8s cluster a private GKE cluster
 
-local k = import "k.libsonnet";
 local iap = import "kubeflow/core/iap.libsonnet";
-local util = import "kubeflow/core/util.libsonnet";
-
-// updatedParams uses the environment namespace if
-// the namespace parameter is not explicitly set
-local updatedParams = params {
-  namespace: if params.namespace == "null" then env.namespace else params.namespace,
-};
-
-local namespace = updatedParams.namespace;
-local disableJwtChecking = util.toBool(params.disableJwtChecking);
-
-iap.parts(namespace).ingressParts(params.secretName, params.ipName, params.hostname, params.issuer, params.envoyImage, params.ingressSetupImage, disableJwtChecking, params.oauthSecretName, params.privateGKECluster)
+local instance = iap.new(env, params);
+instance.list(instance.all)

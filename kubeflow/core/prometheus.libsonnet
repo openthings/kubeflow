@@ -1,23 +1,19 @@
 {
-  all(params):: [
-    $.parts.namespace,
-    $.parts.clusterRole,
-    $.parts.serviceAccount,
-    $.parts.clusterRoleBinding,
-    $.parts.service,
-    $.parts.configMap(params.projectId, params.clusterName, params.zone),
-    $.parts.deployment,
-  ],
+  local k = import "k.libsonnet",
+  local util = import "kubeflow/core/util.libsonnet",
+  new(_env, _params):: {
+    local params = _env + _params,
 
-  parts:: {
-    namespace:: {
+    local namespace = {
       apiVersion: "v1",
       kind: "Namespace",
       metadata: {
         name: "stackdriver",
       },
     },
-    clusterRole:: {
+    namespace:: namespace,
+
+    local clusterRole = {
       apiVersion: "rbac.authorization.k8s.io/v1beta1",
       kind: "ClusterRole",
       metadata: {
@@ -64,7 +60,9 @@
         },
       ],
     },
-    serviceAccount:: {
+    clusterRole:: clusterRole,
+
+    local serviceAccount = {
       apiVersion: "v1",
       kind: "ServiceAccount",
       metadata: {
@@ -72,7 +70,9 @@
         namespace: "stackdriver",
       },
     },
-    clusterRoleBinding:: {
+    serviceAccount:: serviceAccount,
+
+    local clusterRoleBinding = {
       apiVersion: "rbac.authorization.k8s.io/v1beta1",
       kind: "ClusterRoleBinding",
       metadata: {
@@ -91,7 +91,9 @@
         },
       ],
     },
-    service:: {
+    clusterRoleBinding:: clusterRoleBinding,
+
+    local service = {
       apiVersion: "v1",
       kind: "Service",
       metadata: {
@@ -115,7 +117,9 @@
         type: "ClusterIP",
       },
     },
-    configMap(projectId, clusterName, zone):: {
+    service:: service,
+
+    local configMap = {
       apiVersion: "v1",
       kind: "ConfigMap",
       metadata: {
@@ -124,13 +128,15 @@
       },
       data: {
         "prometheus.yml": (importstr "prometheus.yml") % {
-          "project-id-placeholder": projectId,
-          "cluster-name-placeholder": clusterName,
-          "zone-placeholder": zone,
+          "project-id-placeholder": params.projectId,
+          "cluster-name-placeholder": params.clusterName,
+          "zone-placeholder": params.zone,
         },
       },
     },
-    deployment:: {
+    configMap:: configMap,
+
+    local deployment = {
       apiVersion: "extensions/v1beta1",
       kind: "Deployment",
       metadata: {
@@ -198,5 +204,19 @@
         },
       },
     },
-  },  // parts
+    deployment:: deployment,
+
+    parts:: self,
+    all:: [
+      self.namespace,
+      self.clusterRole,
+      self.serviceAccount,
+      self.clusterRoleBinding,
+      self.service,
+      self.configMap,
+      self.deployment,
+    ],
+
+    list(obj=self.all):: util.list(obj),
+  },
 }

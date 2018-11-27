@@ -23,20 +23,25 @@ in the web app and used in requests to GCP services when needed.
 
 ## Development
 
-You can run the app locally for development/testing
-
+You can run the app locally for development/testing.
 ```
 cd components/gcp-click-to-deploy
 # Install dependencies
 npm install
+```
+
+Before starting the server, make a config file `user_config/app-config.yaml` under `src/` with the content from
+[here](https://github.com/kubeflow/kubeflow/blob/master/components/gcp-click-to-deploy/kf_app.yaml#L10).
+And then do
+
+```
 npm start
 ```
 
 ## Deployment
 
-We have a dev instance running at [https://deploy-gcp.kubeflow.dev](https://deploy-gcp.kubeflow.dev)
+We have a dev instance running at [https://deploy.kubeflow.dev](https://deploy.kubeflow.dev)
 
-We have a dev instance running in our dev cluster
 
 ```
 PROJECT=kubeflow-dev
